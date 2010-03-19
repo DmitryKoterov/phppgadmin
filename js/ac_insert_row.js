@@ -82,7 +82,8 @@ function openlist(e) {
 			with(jQuery.ppa.fklist) {
 				html(ret);
 				appendTo('#row_att_'+ attnum);
-				css('width',elt.css('width'));
+				// Not needed, because it is too narrow.
+				//css('width',elt.css('width'));
 				show();
 				jQuery.ppa.numrow = find('tr').length;
 			}
