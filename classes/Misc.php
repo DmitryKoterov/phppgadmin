@@ -1645,6 +1645,8 @@
 		 */
 		function printTable(&$tabledata, &$columns, &$actions, $nodata = null, $pre_fn = null) {
 			global $data, $conf, $misc, $lang;
+			static $count = 0;
+			$formName = "multi_form_" . (++$count);
 
 			if ($has_ma = isset($actions['multiactions']))
 				$ma = $actions['multiactions'];
@@ -1665,7 +1667,7 @@
 
 				if ($has_ma) {
 					echo "<script src=\"multiactionform.js\" type=\"text/javascript\"></script>\n";
-					echo "<form id=\"multi_form\" action=\"{$ma['url']}\" method=\"post\" enctype=\"multipart/form-data\">\n";
+					echo "<form id=\"{$formName}\" action=\"{$ma['url']}\" method=\"post\" enctype=\"multipart/form-data\">\n";
 					if (isset($ma['vars']))
 						foreach ($ma['vars'] as $k => $v)
 							echo "<input type=\"hidden\" name=\"$k\" value=\"$v\" />";
@@ -1768,8 +1770,8 @@
 					echo "</tr>\n";
 					echo "<tr>\n";
 					echo "<td class=\"data1\">";
-					echo "<a href=\"#\" onclick=\"javascript:checkAll(true);\">{$lang['strselectall']}</a> / ";
-					echo "<a href=\"#\" onclick=\"javascript:checkAll(false);\">{$lang['strunselectall']}</a></td>\n";
+					echo "<a href=\"#\" onclick=\"javascript:checkAll('{$formName}', true);\">{$lang['strselectall']}</a> / ";
+					echo "<a href=\"#\" onclick=\"javascript:checkAll('{$formName}', false);\">{$lang['strunselectall']}</a></td>\n";
 					echo "<td class=\"data1\">&nbsp;--->&nbsp;</td>\n";
 					echo "<td class=\"data1\">\n";
 					echo "\t<select name=\"action\">\n";
