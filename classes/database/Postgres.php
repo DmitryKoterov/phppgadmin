@@ -3715,7 +3715,7 @@ class Postgres extends ADODB_base {
 		";
 
 		return $this->selectSet($sql);
-		}
+	}
 
 	// Domain functions
 
@@ -7549,6 +7549,7 @@ class Postgres extends ADODB_base {
 				$metaCols = $this->getMetaComments(null, $table);
 				$show = array("*");
 				foreach ($metaCols as $k => $v) {
+					if (strcasecmp($k, "foreign_key") === 0) continue;
 					$show['@' . $this->fieldClean($k)] = $v;
 				}
 				$query = $this->getSelectSQL($table, $show, $filter? $filter : array(), $ops, $orderby);
@@ -7791,30 +7792,71 @@ class Postgres extends ADODB_base {
 		foreach ($arrayLocals as $nC => $field) {
 			$refs[$field] = $arrayRefs[$nC];
 		}
+		$refs = array_merge($refs, $this->getRefsMapByMetaComments($table));
 		return $refs;
 	}
 
+	/**
+	 * For each foreign key in $values loads its caption.
+	 * If the value is array of FKs, returns array of captions.
+	 *
+	 * @return array(fkValue => array(oneFk1 => caption1, oneFk2 => caption2, ...))
+	 */
 	function loadRefsData($namespace, $table, $field, $values)
 	{
 		if (!$values) return array();
 		$captionSql = $this->getCaptionSql($namespace, $table);
 		if (!$captionSql) return array();
+		
+		// Collect and quote all affected IDs.
 		$quoted = array();
 		foreach ($values as $value) {
-			$quoted[] = "'" . $this->clean($value) . "'";
+			$parsedValues = (array)$this->parsePgValue($value);
+			foreach ($parsedValues as $pv) {
+				$quoted[] = ($pv === null? "NULL" : "'" . $this->clean($pv) . "'");
+			}
 		}
+		
+		// For each foreign ID fetch its caption.
+		$captions = array();
 		$sql =
 			'SELECT "' . $this->fieldClean($field) . '", (' . $captionSql . ') AS caption ' .
-			'FROM "' . $this->fieldClean($namespace) . '"."' . $this->fieldClean($table) . '" WHERE "' . $this->fieldClean($field) . '" IN(' . join(", ", $quoted) . ')';
+			'FROM ' . ($namespace? '"' . $this->fieldClean($namespace) . '".' : '') . '"' . $this->fieldClean($table) . '" ' .
+			'WHERE "' . $this->fieldClean($field) . '" IN(' . join(", ", array_unique($quoted)) . ')';
 		$rs = $this->selectSet($sql);
-		$result = array();
 		while (!$rs->EOF) {
-			$result[$rs->fields[$field]] = array(
-				'caption' => $rs->fields['caption']
-			);
+			$captions[$rs->fields[$field]] = $rs->fields['caption'];
 			$rs->moveNext();
 		}
+
+		// Build resulting map: for each input value (including compound) fill its captions.
+		$result = array();
+		foreach ($values as $value) {
+			$parsedValues = (array)$this->parsePgValue($value);
+			$captionsForValue = array();
+			foreach ($parsedValues as $pv) {
+				if (isset($captions[$pv])) {
+					$captionsForValue[$pv] = array("caption" => $captions[$pv]);
+				}
+			}
+			$result[$value] = $captionsForValue;
+		}
 		return $result;
+	}
+	
+	function parsePgValue($value)
+	{
+		if ($value === null) {
+			 return null;
+		} else if (preg_match('/^\{(.*)\}$/s', $value, $m)) {
+			$parts = array();
+			foreach (preg_split('/\s*,\s*/s', $m[1]) as $part) {
+				$parts[] = (strcasecmp($part, "null") === 0? null : trim($part, '"'));
+			}
+			return $parts;
+		} else {
+			return $value;
+		}
 	}
 
 	function getCaptionSql($namespace, $table)
@@ -7877,15 +7919,7 @@ class Postgres extends ADODB_base {
 				" . ($namespace? " AND nspname='" . $this->clean($namespace) . "'" : "") . "
 		";
 		$rs = $this->selectSet($sql);
-		$comment = @$rs->fields['description'];
-		if (!$comment) return array();
-		$comment = str_replace("\r", "", $comment);
-		preg_match_all('/^[ \t]* @(\w+) [ \t]+ ([^\n]* (?: \n [ \t]{4,} [^\n]+)*)/mx', $comment, $m, PREG_SET_ORDER);
-		$result = array();
-		foreach ($m as $set) {
-			$result[$set[1]] = trim($set[2]);
-		}
-		return $result;
+		return $this->parseMetaComment(@$rs->fields['description']);
 	}
 
 	function getReferredTables($table)
@@ -7899,6 +7933,60 @@ class Postgres extends ADODB_base {
 				$result[$m[2]][] = $info;
 			}
 			$rs->moveNext();
+		}
+		return $result;
+	}
+
+	/**
+	 * Finds the foreign keys that refer to the specified table
+	 * @param $table The table to find referrers for
+	 * @return A recordset
+	 */
+	function getRefsMapByMetaComments($table) {
+		$this->clean($table);
+
+		$status = $this->beginTransaction();
+		if ($status != 0) return -1;
+
+		$c_schema = $this->_schema;
+		$this->clean($c_schema);
+
+		$sql = "
+			SELECT
+				pa.attname,
+				pd.description
+			FROM
+				pg_catalog.pg_namespace pn
+				JOIN pg_catalog.pg_class pl ON pl.relnamespace = pn.oid
+				JOIN pg_catalog.pg_attribute pa ON pa.attrelid = pl.oid
+				JOIN pg_catalog.pg_description pd ON pd.objoid = pl.oid AND pd.objsubid = pa.attnum
+			WHERE
+				relname='{$table}' AND nspname='{$c_schema}'
+		";
+
+		$result = array();
+		$rs = $this->selectSet($sql);
+		while (!$rs->EOF) {
+			$parsed = $this->parseMetaComment($rs->fields['description']);
+			if (!empty($parsed['foreign_key'])) {
+				$fk = trim($parsed['foreign_key']);
+				$parts = preg_split('/\s*\.\s*/s', $fk);
+				if (count($parts) != 3) continue;
+				$result[$rs->fields['attname']] = $parts;
+			}
+			$rs->moveNext();
+		}
+		return $result;
+	}
+		
+	function parseMetaComment($comment)
+	{
+		if (!$comment) return array();
+		$comment = str_replace("\r", "", $comment);
+		preg_match_all('/^[ \t]* @(\w+) [ \t]+ ([^\n]* (?: \n [ \t]{4,} [^\n]+)*)/mx', $comment, $m, PREG_SET_ORDER);
+		$result = array();
+		foreach ($m as $set) {
+			$result[$set[1]] = trim($set[2]);
 		}
 		return $result;
 	}

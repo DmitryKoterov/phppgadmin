@@ -447,7 +447,7 @@
 				}
 				$j = 0;
 				foreach ($row as $k => $v) {
-					$caption = @$refRows[$i][$k]['caption'];
+					$captions = @$refRows[$i][$k];
 					$ref = @$refsMap[$k];
 					$finfo = $finfos[$j++];
 					if (isset($_REQUEST['table']) && $k == $data->id && !$conf['show_oids']) continue;
@@ -474,31 +474,34 @@
 							}
 							$val = '<div class="ajax_referrers">' . join(" ", $hiddens) . $val . '</div>';
 						}
-						if (!$ref || $caption === null) {
+						if (!$ref || !$captions) {
 							echo 
-								"<td class=\"data{$id}\" style=\"white-space:nowrap;\">",
+								"<td valign='top' class=\"data{$id}\" style=\"white-space:nowrap;\">",
 								$val,
 								"</td>";
 						} else {
-							$args = array();
-							$args['server'] = $_REQUEST['server'];
-							$args['database'] = $_REQUEST['database'];
-							$args['action'] = 'confeditrow';
-							$args['subject'] = 'table';
-							$args['key'][$ref[2]] = $v;
-							$args['table'] = $ref[1];
-							$args['schema'] = $ref[0];
-							$args['page'] = 1;
-							$args['strings'] = '';
-							$args['sortkey'] = '';
-							$args['sortdir'] = '';
-							$args['return_url'] = $_SERVER['REQUEST_URI'];
-							$url = 'display.php?'. http_build_query($args);
-							// TODO: edit link
-							echo 
-								"<td class=\"data{$id}\" style=\"white-space:nowrap;\">",
-								"$val<a href='$url'><div class='reference'>" . htmlspecialchars($caption) . "</div></a>",
-								"</td>";
+							$maxCapLen = 32;
+							echo "<td valign='top' class=\"data{$id}\" style=\"white-space:nowrap;\">$val";
+							foreach ($captions as $valForCaption => $caption) {
+								$args = array();
+								$args['server'] = $_REQUEST['server'];
+								$args['database'] = $_REQUEST['database'];
+								$args['action'] = 'confeditrow';
+								$args['subject'] = 'table';
+								$args['key'][$ref[2]] = $valForCaption;
+								$args['table'] = $ref[1];
+								$args['schema'] = $ref[0];
+								$args['page'] = 1;
+								$args['strings'] = '';
+								$args['sortkey'] = '';
+								$args['sortdir'] = '';
+								$args['return_url'] = $_SERVER['REQUEST_URI'];
+								$url = 'display.php?'. http_build_query($args);
+								$capText = $caption['caption'];
+								if (strlen($capText) > $maxCapLen + 3) $capText = substr($capText, 0, $maxCapLen) . "...";
+								echo "<a href='$url'><div class='reference' title=\"" . htmlspecialchars($valForCaption . ": " . $caption['caption']) . "\">" . htmlspecialchars($capText) . "</div></a>";
+							}
+							echo "</td>";
 						}
 					}
 				}
