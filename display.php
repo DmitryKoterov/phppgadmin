@@ -532,7 +532,7 @@
 		// Create report
 		if (isset($_REQUEST['query']) && ($subject !== 'report') && $conf['show_reports'] && isset($rs) && is_object($rs) && $rs->recordCount() > 0)
 			echo "\t<li><a href=\"reports.php?{$misc->href}&amp;action=create&amp;report_sql=",
-				urlencode($_REQUEST['query']), "&amp;paginate=", urlencode($_REQUEST['paginate']), "\">{$lang['strcreatereport']}</a></li>\n";
+				urlencode($_REQUEST['query']), "&amp;paginate=", urlencode(@$_REQUEST['paginate']), "\">{$lang['strcreatereport']}</a></li>\n";
 
 		// Create view and download
 		if (isset($_REQUEST['query']) && isset($rs) && is_object($rs) && $rs->recordCount() > 0) {
