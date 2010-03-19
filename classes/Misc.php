@@ -1195,6 +1195,10 @@
 				else
 					echo $crumblink;
 
+				if (isset($crumb['browse_html'])) {
+					echo '&nbsp;<span class="label"><a href="' . htmlspecialchars($crumb['browse_url']) . '">' . $crumb['browse_html'] . '</a></span>';
+				}
+					
 				echo "{$lang['strseparator']}";
 				echo "</td>";
 			}
@@ -1295,6 +1299,8 @@
 					'title' => $lang['strtable'],
 					'text'  => $_REQUEST['table'],
 					'url'   => "redirect.php?{$vars}",
+					'browse_html' => '<img src="images/themes/default/Open.png">',
+					'browse_url' => "display.php?{$vars}",
 					'help'  => 'pg.table',
 					'icon'  => 'Table'
 				);
