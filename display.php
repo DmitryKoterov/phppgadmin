@@ -432,7 +432,7 @@
 							break;
 						}
 						if ($key_str != '') $key_str .= '&amp;';
-						$key_str .= urlencode("key[{$v}]") . '=' . urlencode($rs->fields[$v]);
+						$key_str .= urlencode("key[{$v}]") . '=' . urlencode($row[$v]);
 					}
 					if ($has_nulls) {
 						echo "<td class=\"data{$id}\" colspan=\"2\">&nbsp;</td>\n";
@@ -500,7 +500,6 @@
 					}
 				}
 				echo "</tr>\n";
-				$rs->moveNext();
 				$i++;
 			}
 			echo "</table>\n";			
