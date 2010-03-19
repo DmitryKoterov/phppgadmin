@@ -7423,7 +7423,6 @@ class Postgres extends ADODB_base {
 	 * @return The SQL query
 	 */
 	function getSelectSQL($table, $show, $values, $ops, $orderby = array()) {
-		$this->fieldArrayClean($show);
 
 		// If an empty array is passed in, then show all columns
 		if (sizeof($show) == 0) {
