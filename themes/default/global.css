@@ -456,3 +456,31 @@ pre.error
 }
 .ac_values {width:100%}
 .ac_field {border:1px solid #D9D95F}
+
+.reference {
+	font-size: 0.9em;
+	color: gray;
+	text-align: right;
+	padding-right: 18px;
+	background: url(../../images/themes/default/ForeignKey.png) no-repeat right center;
+}
+
+.refererrer {
+	font-size: 0.9em;
+	color: gray;
+	text-align: right;
+	padding-right: 18px;
+	background: url(../../images/themes/default/Key.png) no-repeat right center;
+}
+
+.ajax_referrers {
+	cursor: pointer; cursor: hand;
+	padding-right: 18px;
+	background: url(../../images/themes/default/Key.png) no-repeat right center;
+	border-bottom: 1px dashed black;
+}
+
+.ajax_referrers_popup {
+	width: auto;
+	padding: 0;
+}

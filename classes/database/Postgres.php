@@ -7437,9 +7437,13 @@ class Postgres extends ADODB_base {
 			if (!in_array($this->id, $show) && $this->hasObjectID($table))
 				$sql = "SELECT \"{$this->id}\", \"";
 			else
-				$sql = "SELECT \"";
-
-			$sql .= join('","', $show) . "\" FROM ";
+				$sql = "SELECT ";
+			$pairs = array();
+			foreach ($show as $k => $v) {
+				if (is_numeric($k)) $pairs[] = ($v == "*"? $v : '"' . $this->fieldClean($v) . '"');
+				else $pairs[] = '(' . $v . ') AS "' . $this->fieldClean($k) . '"';
+			}
+			$sql .= join(', ', $pairs) . " FROM ";
 		}
 
 		$this->fieldClean($table);
@@ -7526,7 +7530,7 @@ class Postgres extends ADODB_base {
 	 * @return -4 unknown type
 	 * @return -5 failed setting transaction read only
 	 */
-	function browseQuery($type, $table, $query, $sortkey, $sortdir, $page, $page_size, &$max_pages) {
+	function browseQuery($type, $table, $query, $sortkey, $sortdir, $page, $page_size, &$max_pages, $filter = null) {
 		// Check that we're not going to divide by zero
 		if (!is_numeric($page_size) || $page_size != (int)$page_size || $page_size <= 0) return -3;
 
@@ -7535,7 +7539,19 @@ class Postgres extends ADODB_base {
 			case 'TABLE':
 				if (preg_match('/^[0-9]+$/', $sortkey) && $sortkey > 0) $orderby = array($sortkey => $sortdir);
 				else $orderby = array();
-				$query = $this->getSelectSQL($table, array(), array(), array(), $orderby);
+				$ops = array();
+				if (is_array($filter)) {
+					foreach ($filter as $k => $v) {
+						$ops[$k] = "=";
+					}
+				}
+				// TODO: we do not know the namespace here, so this is a potential bug
+				$metaCols = $this->getMetaComments(null, $table);
+				$show = array("*");
+				foreach ($metaCols as $k => $v) {
+					$show['@' . $this->fieldClean($k)] = $v;
+				}
+				$query = $this->getSelectSQL($table, $show, $filter? $filter : array(), $ops, $orderby);
 				break;
 			case 'QUERY':
 			case 'SELECT':
@@ -7747,6 +7763,144 @@ class Postgres extends ADODB_base {
 			ORDER BY indexrelname";
 
 		return $this->selectSet($sql);
+	}
+
+	function getRefsMap($table)
+	{
+		$constraints = $this->getConstraintsWithFields($table);
+		$arrayLocals = array();
+		$arrayRefs = array();
+		$nC = 0;
+		while (!$constraints->EOF) {
+			// The following RE will match a FK constrain with a single (quoted or not) referencing column. At the moment we don't support multicolumn FKs
+			preg_match('/^FOREIGN KEY \(("[^"]*"|[^\s",]*)\) REFERENCES (.*)\((.*)\)/i', $constraints->fields['consrc'], $matches);
+			if(!empty($matches)) {
+				// Strip possible quotes and save
+				$arrayLocals[$nC] = preg_replace('/"(.*)"/', '$1', $matches[1]);
+				// TODO: element [2]
+				$arrayRefs[$nC] = array(
+					$constraints->fields['f_schema'],
+					preg_replace('/^.*\./s', '', preg_replace('/"(.*)"/', '$1', $matches[2])),
+					preg_replace('/"(.*)"/', '$1', $matches[3])
+				);
+				$nC++;
+			}
+			$constraints->moveNext();
+		}
+		$refs = array();
+		foreach ($arrayLocals as $nC => $field) {
+			$refs[$field] = $arrayRefs[$nC];
+		}
+		return $refs;
+	}
+
+	function loadRefsData($namespace, $table, $field, $values)
+	{
+		if (!$values) return array();
+		$captionSql = $this->getCaptionSql($namespace, $table);
+		if (!$captionSql) return array();
+		$quoted = array();
+		foreach ($values as $value) {
+			$quoted[] = "'" . $this->clean($value) . "'";
+		}
+		$sql =
+			'SELECT "' . $this->fieldClean($field) . '", (' . $captionSql . ') AS caption ' .
+			'FROM "' . $this->fieldClean($namespace) . '"."' . $this->fieldClean($table) . '" WHERE "' . $this->fieldClean($field) . '" IN(' . join(", ", $quoted) . ')';
+		$rs = $this->selectSet($sql);
+		$result = array();
+		while (!$rs->EOF) {
+			$result[$rs->fields[$field]] = array(
+				'caption' => $rs->fields['caption']
+			);
+			$rs->moveNext();
+		}
+		return $result;
+	}
+
+	function getCaptionSql($namespace, $table)
+	{
+		$meta = $this->getMetaComments($namespace, $table);
+		if (isset($meta['caption'])) {
+			return $meta['caption'];
+		}
+		$sql = "
+			SELECT * FROM (
+				SELECT
+					array_to_string(ARRAY(
+						SELECT attname
+						FROM
+							pg_attribute
+							JOIN pg_type t ON t.oid=atttypid
+							LEFT JOIN pg_type tbase ON tbase.oid=t.typbasetype
+						WHERE
+							attrelid=it.oid
+							AND attnum=ANY(indkey)
+							AND (
+								upper(coalesce(tbase.typname, t.typname)) IN ('VARCHAR', 'TEXT', 'CHAR')
+								OR coalesce(tbase.typtype, t.typtype)='e'
+							)
+					), ' ') AS fields
+				FROM
+					pg_index
+					JOIN pg_class it ON it.oid=indrelid
+					JOIN pg_class ir ON ir.oid=indexrelid
+					JOIN pg_namespace ON pg_namespace.oid=it.relnamespace
+				WHERE
+					it.relname='" . $this->clean($table) . "'
+					AND nspname='" . $this->clean($namespace) . "'
+					AND indisunique
+			) a
+			ORDER BY array_upper(string_to_array(fields, ' '), 1)
+		";
+		// TODO: more clever algorythm
+		$rs = $this->selectSet($sql);
+		while (!$rs->EOF) {
+			if (trim($rs->fields['fields'])) {
+				return join(" || ',' || ", explode(" ", $rs->fields['fields']));
+			}
+			$rs->moveNext();
+		}
+		// Nothing is found. Just print table name.
+		return "'" . $this->clean($table) . "'";
+	}
+
+	function getMetaComments($namespace, $table)
+	{
+		$sql = "
+			SELECT description
+			FROM
+				pg_description
+				JOIN pg_class ON pg_class.oid=objoid
+				JOIN pg_namespace ON pg_namespace.oid=relnamespace
+			WHERE
+				relname='" . $this->clean($table) . "'
+				" . ($namespace? " AND nspname='" . $this->clean($namespace) . "'" : "") . "
+		";
+		$rs = $this->selectSet($sql);
+		$comment = @$rs->fields['description'];
+		if (!$comment) return array();
+		$comment = str_replace("\r", "", $comment);
+		preg_match_all('/^[ \t]* @(\w+) [ \t]+ ([^\n]* (?: \n [ \t]{4,} [^\n]+)*)/mx', $comment, $m, PREG_SET_ORDER);
+		$result = array();
+		foreach ($m as $set) {
+			$result[$set[1]] = trim($set[2]);
+		}
+		return $result;
+	}
+
+	function getReferredTables($table)
+	{
+		$result = array();
+		$rs = $this->getReferrers($table);
+		while (!$rs->EOF) {
+			$info = $rs->fields;
+			if (preg_match('/^\s* FOREIGN \s+ KEY \s* \( \s* ([^\s)]+) \s* \) \s* REFERENCES \s* [^(]+ \s* \( ([^\s)]+) \)/mxi', $info['consrc'], $m)) {
+				$info['attname'] = $m[1];
+				$result[$m[2]][] = $info;
+			}
+			$rs->moveNext();
+		}
+		return $result;
 	}
 
 	// Capabilities
