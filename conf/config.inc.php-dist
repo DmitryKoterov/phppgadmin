@@ -110,6 +110,9 @@
 	// install the reports database as explained in the INSTALL file.
 	$conf['show_reports'] = true;
 
+	// Show all tables at the schemas.php page?
+	$conf['show_tables_on_schemas_page'] = true;
+	
 	// Database and table for reports
 	$conf['reports_db'] = 'phppgadmin';
 	$conf['reports_schema'] = 'public';
