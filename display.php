@@ -313,7 +313,9 @@
 			isset($object) ? $object : null, 
 			isset($_REQUEST['query']) ? $_REQUEST['query'] : null, 
 			$_REQUEST['sortkey'], $_REQUEST['sortdir'], $_REQUEST['page'],
-			$conf['max_rows'], $max_pages);
+			$conf['max_rows'], $max_pages,
+			is_array(@$_REQUEST['filter'])? $_REQUEST['filter'] : null
+		);
 	
 		// Build strings for GETs
 		$str = 	$misc->href; // . "&amp;page=" . urlencode($_REQUEST['page']);
@@ -329,6 +331,9 @@
 		// This string just contains sort info
 		$str2 = "sortkey=" . urlencode($_REQUEST['sortkey']) . 
 			"&amp;sortdir=" . urlencode($_REQUEST['sortdir']);
+		if (is_array(@$_REQUEST['filter'])) {
+			$str .= "&amp;" . htmlspecialchars(http_build_query(array("filter" => $_REQUEST['filter'])));
+		}
 			
 		if ($save_history && is_object($rs) && ($type == 'QUERY')) //{
 			$misc->saveScriptHistory($_REQUEST['query']);
@@ -378,9 +383,43 @@
 	
 			echo "</tr>\n";
 	
-			$i = 0;		
+			// Build FK map.
+			$curTable = $_REQUEST['table'];
+			$refsMap = $data->getRefsMap($curTable);
+			$referredTables = $data->getReferredTables($curTable);
+			if ($referredTables) {
+				echo '<script src="libraries/js/jquery.js" type="text/javascript"></script>';
+				echo '<script src="referred_tables.js" type="text/javascript"></script>';
+			}
+			// Collect all table data.
 			reset($rs->fields);
+			$finfos = array();
+			foreach (array_values($rs->fields) as $j => $info) {
+				$finfos[] = $rs->fetchField($j);
+			}
+			$rows = array();
 			while (!$rs->EOF) {
+				$rows[] = $rs->fields;
+				$rs->moveNext();
+			}
+			// Collect referrers info.
+			$refRows = array();
+			foreach ($finfos as $finfo) {
+				$field = $finfo->name;
+				$refData = array();
+				if (isset($refsMap[$field])) {
+					$ids = array();
+					foreach ($rows as $row) {
+						$ids[] = $row[$field];
+					}
+					$refData = $data->loadRefsData($refsMap[$field][0], $refsMap[$field][1], $refsMap[$field][2], $ids);
+					foreach ($rows as $i => $row) {
+						$refRows[$i][$field] = @$refData[$rows[$i][$field]];
+					}
+				}
+			}
+						
+			foreach ($rows as $i => $row) {
 				$id = (($i % 2) == 0 ? '1' : '2');
 				echo "<tr>\n";
 				// Display edit and delete links if we have a key
@@ -388,7 +427,7 @@
 					$key_str = '';
 					$has_nulls = false;
 					foreach ($key as $v) {
-						if ($rs->fields[$v] === null) {
+						if ($row[$v] === null) {
 							$has_nulls = true;
 							break;
 						}
@@ -407,13 +446,57 @@
 					}
 				}
 				$j = 0;
-				foreach ($rs->fields as $k => $v) {
-					$finfo = $rs->fetchField($j++);
+				foreach ($row as $k => $v) {
+					$caption = @$refRows[$i][$k]['caption'];
+					$ref = @$refsMap[$k];
+					$finfo = $finfos[$j++];
 					if (isset($_REQUEST['table']) && $k == $data->id && !$conf['show_oids']) continue;
 					elseif ($v !== null && $v == '') echo "<td class=\"data{$id}\">&nbsp;</td>";
 					else {
-						echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">",
-							$misc->printVal($v, $finfo->type, array('null' => true, 'clip' => ($_REQUEST['strings']=='collapsed'))), "</td>";
+						$val = $misc->printVal($v, $finfo->type, array('null' => true, 'clip' => ($_REQUEST['strings']=='collapsed')));
+						if (isset($referredTables[$k])) {
+							$hiddens = array();
+							foreach ($referredTables[$k] as $fk) {
+								$args = array();
+								$args['server'] = $_REQUEST['server'];
+								$args['database'] = $_REQUEST['database'];
+								$args['schema'] = $fk['nspname'];
+								$args['subject'] = 'table';
+								$args['table'] = $fk['relname'];
+								$args['page'] = 1;
+								$args['strings'] = '';
+								$args['sortkey'] = '';
+								$args['sortdir'] = '';
+								$args['filter'][$fk['attname']] = $v;
+								$args['return_url'] = $_SERVER['REQUEST_URI'];
+								$url = 'display.php?'. http_build_query($args);
+								$hiddens[] = '<input type="hidden" name="' . htmlspecialchars($fk['nspname'] . '.' . $fk['relname'] . '.' . $fk['attname']) . '" value="' . htmlspecialchars($url) . '" />';
+							}
+							$val = '<div class="ajax_referrers">' . join(" ", $hiddens) . $val . '</div>';
+						}
+						if (!$ref || $caption === null) {
+							echo 
+								"<td class=\"data{$id}\" style=\"white-space:nowrap;\">",
+								$val,
+								"</td>";
+						} else {
+							parse_str($_SERVER['QUERY_STRING'], $args);
+							$args['action'] = 'confeditrow';
+							$args['key'][$ref[2]] = $v;
+							$args['table'] = $ref[1];
+							$args['schema'] = $ref[0];
+							$args['page'] = 1;
+							$args['strings'] = '';
+							$args['sortkey'] = '';
+							$args['sortdir'] = '';
+							$args['return_url'] = $_SERVER['REQUEST_URI'];
+							$url = 'display.php?'. http_build_query($args);
+							// TODO: edit link
+							echo 
+								"<td class=\"data{$id}\" style=\"white-space:nowrap;\">",
+								"$val<a href='$url'><div class='reference'>" . htmlspecialchars($caption) . "</div></a>",
+								"</td>";
+						}
 					}
 				}
 				echo "</tr>\n";
