@@ -96,6 +96,9 @@
 		if (!$tables->fields) return;
 
 		echo "<h1>{$lang['strschema']} $schema</h1>";
+		$oldHref = $misc->href;
+		$misc->href .= "&amp;schema=$schema";
+		
 		$columns = array(
 			'table' => array(
 				'title' => $lang['strtable'],
@@ -180,6 +183,8 @@
 		if (!$data->hasTablespaces()) unset($columns['tablespace']);
 
 		$misc->printTable($tables, $columns, $actions, $lang['strnotables']);
+		
+		$misc->href = $oldHref;
 	}
 
 	/**
