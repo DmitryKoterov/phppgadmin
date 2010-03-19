@@ -74,6 +74,117 @@
 		$misc->printTable($schemas, $columns, $actions, $lang['strnoschemas']);
 
 		echo "<p><a class=\"navlink\" href=\"schemas.php?action=create&amp;{$misc->href}\">{$lang['strcreateschema']}</a></p>\n";
+		
+		if (!empty($conf['show_tables_on_schemas_page'])) {
+			$schemas = $data->getSchemas();
+			while (!$schemas->EOF) {
+				doPrintTablesForSchema($schemas->fields['nspname']);
+				$schemas->moveNext();
+			}
+		}
+	}
+	
+	/**
+	 * Show default list of tables in the database
+	 */
+	function doPrintTablesForSchema($schema) {
+		global $data, $conf, $misc, $data;
+		global $lang;
+		$data->setSchema($schema);
+		
+		$tables = $data->getTables();
+		if (!$tables->fields) return;
+
+		echo "<h1>{$lang['strschema']} $schema</h1>";
+		$oldHref = $misc->href;
+		$misc->href .= "&amp;schema=$schema";
+		
+		$columns = array(
+			'table' => array(
+				'title' => $lang['strtable'],
+				'field' => field('relname'),
+				'url'		=> "redirect.php?subject=table&amp;{$misc->href}&amp;",
+				'vars'  => array('table' => 'relname'),
+			),
+			'owner' => array(
+				'title' => $lang['strowner'],
+				'field' => field('relowner'),
+			),
+			'tablespace' => array(
+				'title' => $lang['strtablespace'],
+				'field' => field('tablespace')
+			),
+			'tuples' => array(
+				'title' => $lang['strestimatedrowcount'],
+				'field' => field('reltuples'),
+				'type'  => 'numeric'
+			),
+			'actions' => array(
+				'title' => $lang['stractions'],
+			),
+			'comment' => array(
+				'title' => $lang['strcomment'],
+				'field' => field('relcomment'),
+			),
+		);
+
+		$actions = array(
+			'multiactions' => array(
+				'keycols' => array('table' => 'relname'),
+				'url' => 'tables.php',
+				'default' => 'analyze',
+			),
+			'browse' => array(
+				'title' => $lang['strbrowse'],
+				'url'   => "display.php?{$misc->href}&amp;subject=table&amp;return_url=".urlencode("tables.php?{$misc->href}")."&amp;return_desc=".urlencode($lang['strback'])."&amp;",
+				'vars'  => array('table' => 'relname'),
+			),
+			'select' => array(
+				'title' => $lang['strselect'],
+				'url'   => "tables.php?action=confselectrows&amp;{$misc->href}&amp;",
+				'vars'  => array('table' => 'relname'),
+			),
+			'insert' => array(
+				'title' => $lang['strinsert'],
+				'url'   => "tables.php?action=confinsertrow&amp;{$misc->href}&amp;",
+				'vars'  => array('table' => 'relname'),
+			),
+			'empty' => array(
+				'title' => $lang['strempty'],
+				'url'   => "tables.php?action=confirm_empty&amp;{$misc->href}&amp;",
+				'vars'  => array('table' => 'relname'),
+				'multiaction' => 'confirm_empty',
+			),
+			'alter' => array(
+				'title' => $lang['stralter'],
+				'url'	=> "tblproperties.php?action=confirm_alter&amp;{$misc->href}&amp;",
+				'vars'	=> array('table' => 'relname'),
+			),
+			'drop' => array(
+				'title' => $lang['strdrop'],
+				'url'   => "tables.php?action=confirm_drop&amp;{$misc->href}&amp;",
+				'vars'  => array('table' => 'relname'),
+				'multiaction' => 'confirm_drop',
+			),
+			'vacuum' => array(
+				'title' => $lang['strvacuum'],
+				'url'   => "tables.php?action=confirm_vacuum&amp;{$misc->href}&amp;",
+				'vars'  => array('table' => 'relname'),
+				'multiaction' => 'confirm_vacuum',
+			),
+			'analyze' => array(
+				'title' => $lang['stranalyze'],
+				'url'   => "tables.php?action=confirm_analyze&amp;{$misc->href}&amp;",
+				'vars'  => array('table' => 'relname'),
+				'multiaction' => 'confirm_analyze',
+			),
+		);
+
+		if (!$data->hasTablespaces()) unset($columns['tablespace']);
+
+		$misc->printTable($tables, $columns, $actions, $lang['strnotables']);
+		
+		$misc->href = $oldHref;
 	}
 
 	/**
