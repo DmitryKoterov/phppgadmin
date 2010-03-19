@@ -7435,7 +7435,7 @@ class Postgres extends ADODB_base {
 		else {
 			// Add oid column automatically to results for editing purposes
 			if (!in_array($this->id, $show) && $this->hasObjectID($table))
-				$sql = "SELECT \"{$this->id}\", \"";
+				$sql = "SELECT \"{$this->id}\", ";
 			else
 				$sql = "SELECT ";
 			$pairs = array();
