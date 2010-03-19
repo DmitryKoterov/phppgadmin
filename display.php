@@ -480,8 +480,11 @@
 								$val,
 								"</td>";
 						} else {
-							parse_str($_SERVER['QUERY_STRING'], $args);
+							$args = array();
+							$args['server'] = $_REQUEST['server'];
+							$args['database'] = $_REQUEST['database'];
 							$args['action'] = 'confeditrow';
+							$args['subject'] = 'table';
 							$args['key'][$ref[2]] = $v;
 							$args['table'] = $ref[1];
 							$args['schema'] = $ref[0];
