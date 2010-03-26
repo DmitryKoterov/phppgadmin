@@ -7815,6 +7815,7 @@ class Postgres extends ADODB_base {
 				$quoted[] = ($pv === null? "NULL" : "'" . $this->clean($pv) . "'");
 			}
 		}
+		if (!$quoted) return array();
 		
 		// For each foreign ID fetch its caption.
 		$captions = array();
