@@ -60,6 +60,11 @@
 
 			$attrs = $data->getTableAttributes($_REQUEST['table']);
 			$rs = $data->browseRow($_REQUEST['table'], $key);
+
+			// Build FK data.
+			$rowsAndRefs = rsToRows($_REQUEST['table'], $rs, true);
+			$rowAndRefs = current($rowsAndRefs);
+			//echo "<xmp>"; print_r($rowAndRefs); echo "</xmp>";
 			
 			echo "<form action=\"display.php\" method=\"post\" id=\"ac_form\">\n";
 			$elements = 0;
@@ -70,7 +75,7 @@
 				// Output table header
 				echo "<tr><th class=\"data\">{$lang['strcolumn']}</th><th class=\"data\">{$lang['strtype']}</th>";
 				echo "<th class=\"data\">{$lang['strformat']}</th>\n";
-				echo "<th class=\"data\">{$lang['strnull']}</th><th class=\"data\">{$lang['strvalue']}</th></tr>";
+				echo "<th class=\"data\">{$lang['strnull']}</th><th class=\"data\">{$lang['strvalue']}</th><th class=\"data\">{$lang['strreferences']}</th></tr>";
 
 				$i = 0;
 				while (!$attrs->EOF) {
@@ -110,7 +115,7 @@
 					// Output null box if the column allows nulls (doesn't look at CHECKs or ASSERTIONS)
 					if (!$attrs->fields['attnotnull']) {
 						// Set initial null values
-						if ($_REQUEST['action'] == 'confeditrow' && $rs->fields[$attrs->fields['attname']] === null) {
+						if ($_REQUEST['action'] == 'confeditrow' && $rowAndRefs[$attrs->fields['attname']][0] === null) {
 							$_REQUEST['nulls'][$attrs->fields['attname']] = 'on';
 						}
 						echo "<input type=\"checkbox\" name=\"nulls[{$attrs->fields['attname']}]\"",
@@ -120,19 +125,31 @@
 					else
 						echo "&nbsp;</td>";
 
+					list ($bare, $printed, $withRefs) = $rowAndRefs[$attrs->fields['attname']];
+
 					echo "<td class=\"data{$id}\" id=\"aciwp{$i}\" style=\"white-space:nowrap;\">";
 					// If the column allows nulls, then we put a JavaScript action on the data field to unset the
 					// NULL checkbox as soon as anything is entered in the field.  We use the $elements variable to 
 					// keep track of which element offset we're up to.  We can't refer to the null checkbox by name
 					// as it contains '[' and ']' characters.
 					if (!$attrs->fields['attnotnull']) {
-						echo $data->printField($szValueName, $rs->fields[$attrs->fields['attname']], $attrs->fields['type'], 
+						echo $data->printField($szValueName, $bare, $attrs->fields['type'], 
 													array('onChange' => 'elements[' . ($elements - 1) . '].checked = false;'),$szEvents) . $szDivPH;
 					}
 					else {
-						echo $data->printField($szValueName, $rs->fields[$attrs->fields['attname']], $attrs->fields['type'],array(),$szEvents) . $szDivPH;
+						echo $data->printField($szValueName, $bare, $attrs->fields['type'],array(),$szEvents) . $szDivPH;
 					}
 					echo "</td>";
+
+					// Print refs.
+					echo "<td class=\"data{$id}\">";
+					if ($withRefs === $printed) {
+							echo "&nbsp;";
+					} else {
+							echo $withRefs;
+					}
+					echo "</td>";
+
 					$elements++;
 					echo "</tr>\n";
 					$i++;
@@ -383,43 +400,11 @@
 	
 			echo "</tr>\n";
 	
-			// Build FK map.
-			$curTable = $_REQUEST['table'];
-			$refsMap = $data->getRefsMap($curTable);
-			$referredTables = $data->getReferredTables($curTable);
-			if ($referredTables) {
-				echo '<script src="libraries/js/jquery.js" type="text/javascript"></script>';
-				echo '<script src="referred_tables.js" type="text/javascript"></script>';
-			}
-			// Collect all table data.
-			reset($rs->fields);
-			$finfos = array();
-			foreach (array_values($rs->fields) as $j => $info) {
-				$finfos[] = $rs->fetchField($j);
-			}
-			$rows = array();
-			while (!$rs->EOF) {
-				$rows[] = $rs->fields;
-				$rs->moveNext();
-			}
-			// Collect referrers info.
-			$refRows = array();
-			foreach ($finfos as $finfo) {
-				$field = $finfo->name;
-				$refData = array();
-				if (isset($refsMap[$field])) {
-					$ids = array();
-					foreach ($rows as $row) {
-						$ids[] = $row[$field];
-					}
-					$refData = $data->loadRefsData($refsMap[$field][0], $refsMap[$field][1], $refsMap[$field][2], $ids);
-					foreach ($rows as $i => $row) {
-						$refRows[$i][$field] = @$refData[$rows[$i][$field]];
-					}
-				}
-			}
-						
-			foreach ($rows as $i => $row) {
+			// Build FK data.
+			$rowsAndRefs = rsToRows($_REQUEST['table'], $rs);
+
+			// Draw the table.
+			foreach ($rowsAndRefs as $i => $row) {
 				$id = (($i % 2) == 0 ? '1' : '2');
 				echo "<tr>\n";
 				// Display edit and delete links if we have a key
@@ -432,7 +417,7 @@
 							break;
 						}
 						if ($key_str != '') $key_str .= '&amp;';
-						$key_str .= urlencode("key[{$v}]") . '=' . urlencode($row[$v]);
+						$key_str .= urlencode("key[{$v}]") . '=' . urlencode($row[$v][0]);
 					}
 					if ($has_nulls) {
 						echo "<td class=\"data{$id}\" colspan=\"2\">&nbsp;</td>\n";
@@ -446,63 +431,15 @@
 					}
 				}
 				$j = 0;
-				foreach ($row as $k => $v) {
-					$captions = @$refRows[$i][$k];
-					$ref = @$refsMap[$k];
-					$finfo = $finfos[$j++];
+				foreach ($row as $k => $valAndRefs) {
+					list ($v, , $annotatedValue) = $valAndRefs;
 					if (isset($_REQUEST['table']) && $k == $data->id && !$conf['show_oids']) continue;
 					elseif ($v !== null && $v == '') echo "<td class=\"data{$id}\">&nbsp;</td>";
 					else {
-						$val = $misc->printVal($v, $finfo->type, array('null' => true, 'clip' => ($_REQUEST['strings']=='collapsed')));
-						if (isset($referredTables[$k])) {
-							$hiddens = array();
-							foreach ($referredTables[$k] as $fk) {
-								$args = array();
-								$args['server'] = $_REQUEST['server'];
-								$args['database'] = $_REQUEST['database'];
-								$args['schema'] = $fk['nspname'];
-								$args['subject'] = 'table';
-								$args['table'] = $fk['relname'];
-								$args['page'] = 1;
-								$args['strings'] = '';
-								$args['sortkey'] = '';
-								$args['sortdir'] = '';
-								$args['filter'][$fk['attname']] = $v;
-								$args['return_url'] = $_SERVER['REQUEST_URI'];
-								$url = 'display.php?'. http_build_query($args);
-								$hiddens[] = '<input type="hidden" name="' . htmlspecialchars($fk['nspname'] . '.' . $fk['relname'] . '.' . $fk['attname']) . '" value="' . htmlspecialchars($url) . '" />';
-							}
-							$val = '<div class="ajax_referrers">' . join(" ", $hiddens) . $val . '</div>';
-						}
-						if (!$ref || !$captions) {
-							echo 
-								"<td valign='top' class=\"data{$id}\" style=\"white-space:nowrap;\">",
-								$val,
-								"</td>";
-						} else {
-							$maxCapLen = 32;
-							echo "<td valign='top' class=\"data{$id}\" style=\"white-space:nowrap;\">$val";
-							foreach ($captions as $valForCaption => $caption) {
-								$args = array();
-								$args['server'] = $_REQUEST['server'];
-								$args['database'] = $_REQUEST['database'];
-								$args['action'] = 'confeditrow';
-								$args['subject'] = 'table';
-								$args['key'][$ref[2]] = $valForCaption;
-								$args['table'] = $ref[1];
-								$args['schema'] = $ref[0];
-								$args['page'] = 1;
-								$args['strings'] = '';
-								$args['sortkey'] = '';
-								$args['sortdir'] = '';
-								$args['return_url'] = $_SERVER['REQUEST_URI'];
-								$url = 'display.php?'. http_build_query($args);
-								$capText = $caption['caption'];
-								if (strlen($capText) > $maxCapLen + 3) $capText = substr($capText, 0, $maxCapLen) . "...";
-								echo "<a href='$url'><div class='reference' title=\"" . htmlspecialchars($valForCaption . ": " . $caption['caption']) . "\">" . htmlspecialchars($capText) . "</div></a>";
-							}
-							echo "</td>";
-						}
+						echo 
+							"<td valign='top' class=\"data{$id}\" style=\"white-space:nowrap;\">",
+							$annotatedValue,
+							"</td>";
 					}
 				}
 				echo "</tr>\n";
@@ -562,6 +499,105 @@
 			"\">{$lang['strrefresh']}</a></li>\n";
 		echo "</ul>\n";
 	}
+	
+	/**
+	 * Replaces each cell in $rs into array($bareValue, $printedValue, $annotatedValue)
+	 * and returns 2d array of data.
+	 */
+	function rsToRows($curTable, $rs, $pkWithoutHeader = false)
+	{
+		global $data, $misc;
+		$refsMap = $data->getRefsMap($curTable);
+		$referredTables = $data->getReferredTables($curTable);
+		if ($referredTables) {
+			echo '<script src="libraries/js/jquery.js" type="text/javascript"></script>';
+			echo '<script src="referred_tables.js" type="text/javascript"></script>';
+		}
+		// Collect all table data.
+		reset($rs->fields);
+		$finfos = array();
+		foreach (array_values($rs->fields) as $j => $info) {
+			$finfos[] = $rs->fetchField($j);
+		}
+		$rows = array();
+		while (!$rs->EOF) {
+			$rows[] = $rs->fields;
+			$rs->moveNext();
+		}
+		// Collect referrers info.
+		$refRows = array();
+		foreach ($finfos as $finfo) {
+			$field = $finfo->name;
+			$refData = array();
+			if (isset($refsMap[$field])) {
+				$ids = array();
+				foreach ($rows as $row) {
+					$ids[] = $row[$field];
+				}
+				$refData = $data->loadRefsData($refsMap[$field][0], $refsMap[$field][1], $refsMap[$field][2], $ids);
+				foreach ($rows as $i => $row) {
+					$refRows[$i][$field] = @$refData[$rows[$i][$field]];
+				}
+			}
+		}
+		// Fill binding map.
+		foreach ($rows as $i => $row) {
+			$j = 0;
+			foreach ($row as $k => $bare) {
+				$finfo = $finfos[$j++];
+				$ref = @$refsMap[$k];
+				$captions = @$refRows[$i][$k];
+				$printed = $val = $misc->printVal($bare, $finfo->type, array('null' => true, 'clip' => ($_REQUEST['strings']=='collapsed')));
+				if ($pkWithoutHeader) {
+					$val = "";
+				}
+				if (isset($referredTables[$k])) {
+					$hiddens = array();
+					foreach ($referredTables[$k] as $fk) {
+						$args = array();
+						$args['server'] = $_REQUEST['server'];
+						$args['database'] = $_REQUEST['database'];
+						$args['schema'] = $fk['nspname'];
+						$args['subject'] = 'table';
+						$args['table'] = $fk['relname'];
+						$args['page'] = 1;
+						$args['strings'] = '';
+						$args['sortkey'] = '';
+						$args['sortdir'] = '';
+						$args['filter'][$fk['attname']] = $bare;
+						$url = 'display.php?'. http_build_query($args);
+						$hiddens[] = '<input type="hidden" name="' . htmlspecialchars($fk['nspname'] . '.' . $fk['relname'] . '.' . $fk['attname']) . '" value="' . htmlspecialchars($url) . '" />';
+					}
+					$val = '<div class="' . ($pkWithoutHeader? 'ajax_referrers_opened' : 'ajax_referrers') . '">' . join(" ", $hiddens) . $val . '</div>';
+				}
+				if ($ref && $captions) {
+					$maxCapLen = 32;
+					foreach ($captions as $valForCaption => $caption) {
+						$args = array();
+						$args['server'] = $_REQUEST['server'];
+						$args['database'] = $_REQUEST['database'];
+						$args['action'] = 'confeditrow';
+						$args['subject'] = 'table';
+						$args['key'][$ref[2]] = $valForCaption;
+						$args['table'] = $ref[1];
+						$args['schema'] = $ref[0];
+						$args['page'] = 1;
+						$args['strings'] = '';
+						$args['sortkey'] = '';
+						$args['sortdir'] = '';
+						$url = 'display.php?'. http_build_query($args);
+						$capText = $caption['caption'];
+						if (strlen($capText) > $maxCapLen + 3) $capText = substr($capText, 0, $maxCapLen) . "...";
+						$val .= "<a href='$url'><div class='reference' title=\"" . htmlspecialchars($valForCaption . ": " . $caption['caption']) . "\">" . htmlspecialchars($capText) . "</div></a>";
+					}
+				}
+				$rows[$i][$k] = array($bare, $printed, $val);
+			}
+		}
+		//echo "<xmp>"; print_r($referredTables); echo "</xmp>";
+		return $rows;
+	}
+	
 	
 	// If a table is specified, then set the title differently
 	if (isset($_REQUEST['subject']) && isset($_REQUEST[$_REQUEST['subject']]))
