@@ -50,6 +50,9 @@
 		</tr>\n");
 	fclose($fd);
 
+	if(!is_dir($test_static_dir))
+		mkdir($test_static_dir);
+
 	/* Loop on the servers given in the conf/config.inc.conf file */
 	foreach ($conf['servers'] as $server) {
 		// Is this server in our list of configured servers?
