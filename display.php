@@ -113,12 +113,14 @@
 					$elements++;
 					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">";
 					// Output null box if the column allows nulls (doesn't look at CHECKs or ASSERTIONS)
+					$nullCheckboxId = null;
 					if (!$attrs->fields['attnotnull']) {
 						// Set initial null values
 						if ($_REQUEST['action'] == 'confeditrow' && $rowAndRefs[$attrs->fields['attname']][0] === null) {
 							$_REQUEST['nulls'][$attrs->fields['attname']] = 'on';
 						}
-						echo "<input type=\"checkbox\" name=\"nulls[{$attrs->fields['attname']}]\"",
+						$nullCheckboxId = uniqid("");
+						echo "<input type=\"checkbox\" name=\"nulls[{$attrs->fields['attname']}]\" id=\"$nullCheckboxId\"",
 							isset($_REQUEST['nulls'][$attrs->fields['attname']]) ? ' checked="checked"' : '', " /></td>\n";
 						$elements++;
 					}
@@ -134,7 +136,7 @@
 					// as it contains '[' and ']' characters.
 					if (!$attrs->fields['attnotnull']) {
 						echo $data->printField($szValueName, $bare, $attrs->fields['type'], 
-													array('onChange' => 'elements[' . ($elements - 1) . '].checked = false;'),$szEvents) . $szDivPH;
+													($nullCheckboxId? array('onChange' => 'document.getElementById("' . $nullCheckboxId . '").checked = false;') : array()),$szEvents) . $szDivPH;
 					}
 					else {
 						echo $data->printField($szValueName, $bare, $attrs->fields['type'],array(),$szEvents) . $szDivPH;
