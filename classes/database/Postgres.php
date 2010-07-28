@@ -7835,8 +7835,8 @@ class Postgres extends ADODB_base {
 			$parsedValues = (array)$this->parsePgValue($value);
 			$captionsForValue = array();
 			foreach ($parsedValues as $pv) {
-				if (isset($captions[$pv])) {
-					$captionsForValue[$pv] = array("caption" => $captions[$pv]);
+				if (array_key_exists($pv, $captions)) {
+					$captionsForValue[$pv] = array("caption" => strlen($captions[$pv])? $captions[$pv] : "<none>");
 				}
 			}
 			$result[$value] = $captionsForValue;
@@ -7851,7 +7851,7 @@ class Postgres extends ADODB_base {
 		} else if (preg_match('/^\{(.*)\}$/s', $value, $m)) {
 			$parts = array();
 			foreach (preg_split('/\s*,\s*/s', $m[1]) as $part) {
-				$parts[] = (strcasecmp($part, "null") === 0? null : trim($part, '"'));
+				$parts[] = (strcasecmp($part, "null") === 0 || $part === ""? null : trim($part, '"'));
 			}
 			return $parts;
 		} else {
