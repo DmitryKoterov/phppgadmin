@@ -782,7 +782,7 @@
 			if (!isset($_POST['nulls'])) $_POST['nulls'] = array();
 			
 			$status = $data->editRow($_POST['table'], $_POST['values'], $_POST['nulls'], 
-												$_POST['format'], $_POST['types'], unserialize($_POST['key']));
+												$_POST['format'], $_POST['types'], unserialize($_POST['key']), array());
 			if ($status == 0)
 				doAdmin($lang['strrowupdated']);
 			elseif ($status == -2)

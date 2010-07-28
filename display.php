@@ -66,7 +66,7 @@
 			$rowAndRefs = current($rowsAndRefs);
 			//echo "<xmp>"; print_r($rowAndRefs); echo "</xmp>";
 			
-			echo "<form action=\"display.php\" method=\"post\" id=\"ac_form\">\n";
+			echo "<form action=\"display.php\" method=\"post\" enctype=\"multipart/form-data\" id=\"ac_form\">\n";
 			$elements = 0;
 			$error = true;			
 			if ($rs->recordCount() == 1 && $attrs->recordCount() > 0) {
@@ -128,6 +128,9 @@
 						echo "&nbsp;</td>";
 
 					list ($bare, $printed, $withRefs) = $rowAndRefs[$attrs->fields['attname']];
+					if ($_REQUEST['action'] == "editrow" && $attrs->fields['type'] != 'bytea') {
+						$bare = $_REQUEST['values'][$attrs->fields['attname']];
+					}
 
 					echo "<td class=\"data{$id}\" id=\"aciwp{$i}\" style=\"white-space:nowrap;\">";
 					// If the column allows nulls, then we put a JavaScript action on the data field to unset the
@@ -146,9 +149,14 @@
 					// Print refs.
 					echo "<td class=\"data{$id}\">";
 					if ($withRefs === $printed) {
-							echo "&nbsp;";
+						echo "&nbsp;";
 					} else {
-							echo $withRefs;
+						echo $withRefs;
+					}
+					if ($attrs->fields['type'] == "bytea") {
+						echo "&nbsp;<a href=\"bytea.php?key=" . urlencode(serialize($key)) . "&amp;server=" . urlencode($_REQUEST['server']) . 
+							"&amp;database=" . urlencode($_REQUEST['database']) . "&amp;schema=" . urlencode($_REQUEST['schema']) . 
+							"&amp;table=" . urlencode($_REQUEST['table']) . "&amp;field=" . urlencode($attrs->fields['attname']) . "\" target=\"_blank\">View</a>&nbsp;&nbsp;&nbsp;&nbsp;";
 					}
 					echo "</td>";
 
@@ -204,9 +212,8 @@
 		else {
 			if (!isset($_POST['values'])) $_POST['values'] = array();
 			if (!isset($_POST['nulls'])) $_POST['nulls'] = array();
-			
 			$status = $data->editRow($_POST['table'], $_POST['values'], $_POST['nulls'], 
-												$_POST['format'], $_POST['types'], unserialize($_POST['key']));
+												$_POST['format'], $_POST['types'], unserialize($_POST['key']), @$_FILES['file_values']);
 			if ($status == 0)
 				doBrowse($lang['strrowupdated']);
 			elseif ($status == -2)
@@ -434,10 +441,16 @@
 				}
 				$j = 0;
 				foreach ($row as $k => $valAndRefs) {
-					list ($v, , $annotatedValue) = $valAndRefs;
+					list ($v, , $annotatedValue, $type) = $valAndRefs;
 					if (isset($_REQUEST['table']) && $k == $data->id && !$conf['show_oids']) continue;
 					elseif ($v !== null && $v == '') echo "<td class=\"data{$id}\">&nbsp;</td>";
 					else {
+						if ($type == "bytea" && $v !== null) {
+							$annotatedValue = 
+								"<a href=\"bytea.php?{$key_str}&amp;server=" . urlencode($_REQUEST['server']) . 
+								"&amp;database=" . urlencode($_REQUEST['database']) . "&amp;schema=" . urlencode($_REQUEST['schema']) . 
+								"&amp;table=" . urlencode($_REQUEST['table']) . "&amp;field=" . urlencode($k) . "\" target=\"_blank\">BYTEA (" . strlen($v) . " bytes)</a>&nbsp;&nbsp;&nbsp;&nbsp;";
+						}
 						echo 
 							"<td valign='top' class=\"data{$id}\" style=\"white-space:nowrap;\">",
 							$annotatedValue,
@@ -593,7 +606,7 @@
 						$val .= "<a href='$url'><div class='reference' title=\"" . htmlspecialchars($valForCaption . ": " . $caption['caption']) . "\">" . htmlspecialchars($capText) . "</div></a>";
 					}
 				}
-				$rows[$i][$k] = array($bare, $printed, $val);
+				$rows[$i][$k] = array($bare, $printed, $val, $finfo->type);
 			}
 		}
 		//echo "<xmp>"; print_r($referredTables); echo "</xmp>";

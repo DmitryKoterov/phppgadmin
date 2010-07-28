@@ -535,7 +535,7 @@
 				else $auto_complete = false;
 			}
 
-			echo "<form action=\"tables.php\" method=\"post\" id=\"ac_form\">\n";
+			echo "<form action=\"tables.php\" method=\"post\" enctype=\"multipart/form-data\" id=\"ac_form\">\n";
 			if ($attrs->recordCount() > 0) {
 				echo "<table>\n";
 
@@ -571,9 +571,11 @@
 					echo "</select>\n</td>\n";
 					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">";
 					// Output null box if the column allows nulls (doesn't look at CHECKs or ASSERTIONS)
+					$nullCheckboxId = null;
 					if (!$attrs->fields['attnotnull']) {
-						echo "<input type=\"checkbox\" name=\"nulls[{$attrs->fields['attnum']}]\"",
-							isset($_REQUEST['nulls'][$attrs->fields['attnum']]) ? ' checked="checked"' : '', " /></td>";
+						$nullCheckboxId = uniqid("");
+						echo "<input type=\"checkbox\" name=\"nulls[{$attrs->fields['attnum']}]\" id=\"$nullCheckboxId\"",
+							$_REQUEST['action'] == "confinsertrow" || isset($_REQUEST['nulls'][$attrs->fields['attnum']]) ? ' checked="checked"' : '', " /></td>";
 					}
 					else {
 						echo "&nbsp;</td>";
@@ -581,11 +583,11 @@
 					echo "<td class=\"data{$id}\" id=\"row_att_{$attrs->fields['attnum']}\" style=\"white-space:nowrap;\">";
 					if ($auto_complete && isset($fksprops['byfield'][$attrs->fields['attnum']])) {
 						echo $data->printField("values[{$attrs->fields['attnum']}]", $_REQUEST['values'][$attrs->fields['attnum']],
-							'fktype'/*force FK*/,array(), "id=\"attr_{$attrs->fields['attnum']}\" autocomplete=\"off\"");
+							'fktype'/*force FK*/,($nullCheckboxId? array('onChange' => 'document.getElementById("' . $nullCheckboxId . '").checked = false;') : array()), "id=\"attr_{$attrs->fields['attnum']}\" autocomplete=\"off\"");
 					}
 					else {
 						echo $data->printField("values[{$attrs->fields['attnum']}]", $_REQUEST['values'][$attrs->fields['attnum']],
-							$attrs->fields['type'],array());
+							$attrs->fields['type'],($nullCheckboxId? array('onChange' => 'document.getElementById("' . $nullCheckboxId . '").checked = false;') : array()));
 					}
 					echo "</td>\n";
 					echo "</tr>\n";
@@ -630,7 +632,7 @@
 
 			if ($_SESSION['counter']++ == $_POST['protection_counter']) {
 				$status = $data->insertRow($_POST['table'], $_POST['fields'], $_POST['values'],
-											$_POST['nulls'], $_POST['format'], $_POST['types']);
+											$_POST['nulls'], $_POST['format'], $_POST['types'], @$_FILES['file_values']);
 				if ($status == 0) {
 					if (isset($_POST['insert']))
 						doDefault($lang['strrowinserted']);

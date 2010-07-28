@@ -280,7 +280,17 @@ class Postgres extends ADODB_base {
 					echo "<input name=\"", htmlspecialchars($name), "\" value=\"", htmlspecialchars($value), "\" size=\"35\"{$action_str} {$extra} />\n";
 				}
 				break;
-			case 'bytea':
+			case 'bytea':	
+				$uniqid = uniqid("");
+				$n = substr_count($value, "\n");
+				$n = $n < 5 ? 5 : $n;
+				$n = $n > 20 ? 20 : $n;
+				echo ($value === null? "<i>NULL</i>" : "<i>BYTEA (" . strlen($value) . " bytes)</i>") . "</b>&nbsp;&nbsp;";
+				echo "<a href=\"#\" onclick=\"document.getElementById('{$uniqid}_up').style.display='block'; return false\">Upload</a>&nbsp;&nbsp;";
+				echo "<input type=\"hidden\" name=\"", htmlspecialchars($name), "\" value=\"upload\"/>";
+				echo "<input type=\"file\" id=\"{$uniqid}_up\" name=\"file_" . htmlspecialchars($name) . "\"{$action_str} style=\"display:none\"/>";
+				break;
+				
 			case 'bytea[]':
 				$value = $this->escapeBytea($value);
 			case 'text':
@@ -329,6 +339,8 @@ class Postgres extends ADODB_base {
 				else
 					return $value;
 				break;
+			case 'bytea':
+				return "'" . pg_escape_bytea($value) . "'";
 			default:
 				// Checking variable fields is difficult as there might be a size
 				// attribute...
@@ -2429,6 +2441,28 @@ class Postgres extends ADODB_base {
 	}
 
 	/**
+	 * @return True if this field must be processed (inserted/updated), false otherwise.
+	 */
+	function processField($key, &$value, $uploads) {
+		if ($uploads && isset($uploads["name"][$key])) {
+			// Has upload form element for this field.
+			if ($uploads["tmp_name"][$key]) {
+				$tmpfn = $uploads["tmp_name"][$key];
+				if (@is_file($tmpfn)) {
+					$value = file_get_contents($tmpfn);
+				}
+				return true;
+			} else {
+				// Upload is failed, do not modify anything.
+				return false;
+			}
+		} else {
+			// No upload form element for the field, do nothing.
+			return true;
+		}
+	}
+
+	/**
 	 * Adds a new row to a table
 	 * @param $table The table in which to insert
 	 * @param $fields Array of given field in values
@@ -2439,7 +2473,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 * @return -1 invalid parameters
 	 */
-	function insertRow($table, $fields, $values, $nulls, $format, $types) {
+	function insertRow($table, $fields, $values, $nulls, $format, $types, $uploads = null) {
 
 		if (!is_array($fields) || !is_array($values) || !is_array($nulls)
 			|| !is_array($format) || !is_array($types)
@@ -2462,8 +2496,13 @@ class Postgres extends ADODB_base {
 					// Handle NULL values
 					if (isset($nulls[$i]))
 						$sql .= ',NULL';
-					else
-						$sql .= ',' . $this->formatValue($types[$i], $format[$i], $value);
+					else {
+						if (!$this->processField($i, $value, $uploads)) {
+							$sql .= ',DEFAULT';
+						} else {
+							$sql .= ',' . $this->formatValue($types[$i], $format[$i], $value);
+						}
+					}
 				}
 
 				$sql = "INSERT INTO \"{$f_schema}\".\"{$table}\" (\"". implode('","', $fields) ."\")
@@ -2487,7 +2526,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 * @return -1 invalid parameters
 	 */
-	function editRow($table, $vars, $nulls, $format, $types, $keyarr) {
+	function editRow($table, $vars, $nulls, $format, $types, $keyarr, $uploads = null) {
 		if (!is_array($vars) || !is_array($nulls) || !is_array($format) || !is_array($types))
 			return -1;
 		else {
@@ -2503,7 +2542,13 @@ class Postgres extends ADODB_base {
 
 					// Handle NULL values
 					if (isset($nulls[$key])) $tmp = 'NULL';
-					else $tmp = $this->formatValue($types[$key], $format[$key], $value);
+					else {
+						if (!$this->processField($key, $value, $uploads)) {
+							// Upload failed, skip the field.
+							continue;
+						}
+						$tmp = $this->formatValue($types[$key], $format[$key], $value);
+					}
 
 					if (isset($sql)) $sql .= ", \"{$key}\"={$tmp}";
 					else $sql = "UPDATE \"{$f_schema}\".\"{$table}\" SET \"{$key}\"={$tmp}";
