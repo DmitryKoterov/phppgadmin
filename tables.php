@@ -401,7 +401,16 @@
 					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">";
 					echo "<select name=\"ops[{$attrs->fields['attname']}]\">\n";
 					foreach (array_keys($data->selectOps) as $v) {
-						echo "<option value=\"", htmlspecialchars($v), "\"", ($v == $_REQUEST['ops'][$attrs->fields['attname']]) ? ' selected="selected"' : '',
+                        if (isset($_REQUEST['ops'][$attrs->fields['attname']])) {
+                            $vReq = $_REQUEST['ops'][$attrs->fields['attname']];
+                        } else {
+                            if (preg_match('/\b(character|text)\b/i', $attrs->fields['type'])) {
+                                $vReq = 'LIKE';
+                            } else {
+                                $vReq = null;
+                            }
+                        }
+						echo "<option value=\"", htmlspecialchars($v), "\"", ($v == $vReq) ? ' selected="selected"' : '',
 						">", htmlspecialchars($v), "</option>\n";
 					}
 					echo "</select>\n</td>\n";
