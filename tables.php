@@ -354,7 +354,7 @@
 
 			$attrs = $data->getTableAttributes($_REQUEST['table']);
 
-			echo "<form action=\"tables.php\" method=\"post\" id=\"selectform\">\n";
+			echo "<form action=\"tables.php\" method=\"post\" id=\"selectform\" onkeypress=\"ctrlEnter(event, this)\">\n";
 			if ($attrs->recordCount() > 0) {
 				// JavaScript for select all feature
 				echo "<script type=\"text/javascript\">\n";
@@ -365,6 +365,13 @@
 				echo "			if (e.name.indexOf('show') == 0) e.checked = document.getElementById('selectform').selectall.checked;\n";
 				echo "		}\n";
 				echo "	}\n";
+				echo "
+                    function ctrlEnter(event, formElem) {
+                        if((event.ctrlKey) && ((event.keyCode == 0xA)||(event.keyCode == 0xD))) {
+                            formElem.select.click();
+                        }
+                    }
+                ";
 				echo "//]]>\n";
 				echo "</script>\n";
 
