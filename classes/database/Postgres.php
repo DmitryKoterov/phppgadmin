@@ -11,7 +11,7 @@ include_once('./classes/database/ADODB_base.php');
 
 class Postgres extends ADODB_base {
 
-	var $major_version = 8.5;
+	var $major_version = 9.0;
 	// Max object name length
 	var $_maxNameLen = 63;
 	// Store the current schema
@@ -249,16 +249,15 @@ class Postgres extends ADODB_base {
 	 * @param $name The name to give the field
 	 * @param $value The value of the field.  Note this could be 'numeric(7,2)' sort of thing...
 	 * @param $type The database type of the field
-	 * @param $actions An array of javascript action name to the code to execute on that action
-	 * @param $extra Some extra attributes to add.
+	 * @param $extras An array of attributes name as key and attributes' values as value
 	 */
-	function printField($name, $value, $type, $actions = array(), $extra='') {
+	function printField($name, $value, $type, $extras = array()) {
 		global $lang;
 
 		// Determine actions string
-		$action_str = '';
-		foreach ($actions as $k => $v) {
-			$action_str .= " {$k}=\"" . htmlspecialchars($v) . "\"";
+		$extra_str = '';
+		foreach ($extras as $k => $v) {
+			$extra_str .= " {$k}=\"" . htmlspecialchars($v) . "\"";
 		}
 
 		switch (substr($type,0,9)) {
@@ -270,14 +269,14 @@ class Postgres extends ADODB_base {
 
 				// If value is null, 't' or 'f'...
 				if ($value === null || $value == 't' || $value == 'f') {
-					echo "<select name=\"", htmlspecialchars($name), "\"{$action_str}>\n";
+					echo "<select name=\"", htmlspecialchars($name), "\"{$extra_str}>\n";
 					echo "<option value=\"\"", ($value === null) ? ' selected="selected"' : '', "></option>\n";
 					echo "<option value=\"t\"", ($value == 't') ? ' selected="selected"' : '', ">{$lang['strtrue']}</option>\n";
 					echo "<option value=\"f\"", ($value == 'f') ? ' selected="selected"' : '', ">{$lang['strfalse']}</option>\n";
 					echo "</select>\n";
 				}
 				else {
-					echo "<input name=\"", htmlspecialchars($name), "\" value=\"", htmlspecialchars($value), "\" size=\"35\"{$action_str} {$extra} />\n";
+					echo "<input name=\"", htmlspecialchars($name), "\" value=\"", htmlspecialchars($value), "\" size=\"35\"{$extra_str} />\n";
 				}
 				break;
 			case 'bytea':	
@@ -287,8 +286,8 @@ class Postgres extends ADODB_base {
 				$n = $n > 20 ? 20 : $n;
 				echo ($value === null? "<i>NULL</i>" : "<i>BYTEA (" . strlen($value) . " bytes)</i>") . "</b>&nbsp;&nbsp;";
 				echo "<a href=\"#\" onclick=\"document.getElementById('{$uniqid}_up').style.display='block'; return false\">Upload</a>&nbsp;&nbsp;";
-				echo "<input type=\"hidden\" name=\"", htmlspecialchars($name), "\" value=\"upload\"/>";
-				echo "<input type=\"file\" id=\"{$uniqid}_up\" name=\"file_" . htmlspecialchars($name) . "\"{$action_str} style=\"display:none\"/>";
+				echo "<input type=\"hidden\" name=\"", htmlspecialchars($name), "\" value=\"\"/>";
+				echo "<input type=\"file\" id=\"{$uniqid}_up\" name=\"file_" . htmlspecialchars($name) . "\"{$extra_str} style=\"display:none\"/>";
 				break;
 				
 			case 'bytea[]':
@@ -300,7 +299,7 @@ class Postgres extends ADODB_base {
 				$n = substr_count($value, "\n");
 				$n = $n < 5 ? 5 : $n;
 				$n = $n > 20 ? 20 : $n;
-				echo "<textarea name=\"", htmlspecialchars($name), "\" rows=\"{$n}\" cols=\"75\"{$action_str}>\n";
+				echo "<textarea name=\"", htmlspecialchars($name), "\" rows=\"{$n}\" cols=\"75\"{$extra_str}>\n";
 				echo htmlspecialchars($value);
 				echo "</textarea>\n";
 				break;
@@ -309,12 +308,12 @@ class Postgres extends ADODB_base {
 				$n = substr_count($value, "\n");
 				$n = $n < 5 ? 5 : $n;
 				$n = $n > 20 ? 20 : $n;
-				echo "<textarea name=\"", htmlspecialchars($name), "\" rows=\"{$n}\" cols=\"35\"{$action_str}>\n";
+				echo "<textarea name=\"", htmlspecialchars($name), "\" rows=\"{$n}\" cols=\"35\"{$extra_str}>\n";
 				echo htmlspecialchars($value);
 				echo "</textarea>\n";
 				break;
 			default:
-				echo "<input name=\"", htmlspecialchars($name), "\" value=\"", htmlspecialchars($value), "\" size=\"35\"{$action_str} {$extra} />\n";
+				echo "<input name=\"", htmlspecialchars($name), "\" value=\"", htmlspecialchars($value), "\" size=\"35\"{$extra_str} />\n";
 				break;
 		}
 	}
@@ -439,7 +438,7 @@ class Postgres extends ADODB_base {
 	}
 
 	function getHelpPages() {
-		include_once('./help/PostgresDoc85.php');
+		include_once('./help/PostgresDoc90.php');
 		return $this->help_page;
 	}
 
@@ -474,8 +473,10 @@ class Postgres extends ADODB_base {
 		}
 		else $clause = '';
 
-		if ($currentdatabase != NULL)
+		if ($currentdatabase != NULL) {
+			$this->clean($currentdatabase);
 			$orderby = "ORDER BY pdb.datname = '{$currentdatabase}' DESC, pdb.datname";
+		} 
 		else
 			$orderby = "ORDER BY pdb.datname";
 
@@ -602,8 +603,8 @@ class Postgres extends ADODB_base {
 	 * @return int 0 on success
 	 */
 	function alterDatabaseRename($oldName, $newName) {
-		$this->clean($oldName);
-		$this->clean($newName);
+		$this->fieldClean($oldName);
+		$this->fieldClean($newName);
 
 		if ($oldName != $newName) {
 			$sql = "ALTER DATABASE \"{$oldName}\" RENAME TO \"{$newName}\"";
@@ -632,8 +633,8 @@ class Postgres extends ADODB_base {
 	 * @return int 0 on success
 	 */
 	function alterDatabaseOwner($dbName, $newOwner) {
-		$this->clean($dbName);
-		$this->clean($newOwner);
+		$this->fieldClean($dbName);
+		$this->fieldClean($newOwner);
 
 		$sql = "ALTER DATABASE \"{$dbName}\" OWNER TO \"{$newOwner}\"";
 		return $this->execute($sql);
@@ -652,9 +653,6 @@ class Postgres extends ADODB_base {
 	 * @return -4 comment error
 	 */
 	function alterDatabase($dbName, $newName, $newOwner = '', $comment = '') {
-		$this->clean($dbName);
-		$this->clean($newName);
-		$this->clean($newOwner);
 
 		$status = $this->beginTransaction();
 		if ($status != 0) {
@@ -668,6 +666,7 @@ class Postgres extends ADODB_base {
 				$this->rollbackTransaction();
 				return -3;
 			}
+			$dbName = $newName;
 		}
 
 		if ($newOwner != '') {
@@ -677,7 +676,8 @@ class Postgres extends ADODB_base {
 				return -2;
 			}
 		}
-
+		
+		$this->fieldClean($dbName);
 		$status = $this->setComment('DATABASE', $dbName, '', $comment);
 		if ($status != 0) {
 			$this->rollbackTransaction();
@@ -728,7 +728,7 @@ class Postgres extends ADODB_base {
 		else {
 			$where = '';
 			$lan_where = '';
-	}
+		}
 
 		// Apply outer filter
 		$sql = '';
@@ -776,7 +776,7 @@ class Postgres extends ADODB_base {
 			UNION ALL
 			SELECT 'TRIGGER', NULL, pn.nspname, pc.relname, pt.tgname FROM pg_catalog.pg_class pc, pg_catalog.pg_namespace pn,
 				pg_catalog.pg_trigger pt WHERE pc.relnamespace=pn.oid AND pc.oid=pt.tgrelid
-					AND (NOT pt.tgisconstraint OR NOT EXISTS
+					AND ( pt.tgconstraint = 0 OR NOT EXISTS
 					(SELECT 1 FROM pg_catalog.pg_depend d JOIN pg_catalog.pg_constraint c
 					ON (d.refclassid = c.tableoid AND d.refobjid = c.oid)
 					WHERE d.classid = pt.tableoid AND d.objid = pt.oid AND d.deptype = 'i' AND c.contype = 'f'))
@@ -844,16 +844,6 @@ class Postgres extends ADODB_base {
 	}
 
 	/**
-	 * Returns the specified variable information.
-	 * @return the field
-	 */
-	function getVariable($setting) {
-		$sql = "SHOW $setting";
-
-		return $this->selectSet($sql);
-	}
-
-	/**
 	 * Returns all available variable information.
 	 * @return A recordset
 	 */
@@ -866,8 +856,7 @@ class Postgres extends ADODB_base {
 	// Schema functons
 
 	/**
-	 * Return all schemas in the current database.  This differs from the version
-	 * in 7.3 only in that it considers the information_schema to be a system schema.
+	 * Return all schemas in the current database.
 	 * @return All schemas, sorted alphabetically
 	 */
 	function getSchemas() {
@@ -1825,6 +1814,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 */
 	function alterTableName($tblrs, $name = null) {
+		/* vars cleaned in _alterTable */
 		// Rename (only if name has changed)
 		if (!empty($name) && ($name != $tblrs->fields['relname'])) {
 			$f_schema = $this->_schema;
@@ -1848,6 +1838,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 */
 	function alterTableOwner($tblrs, $owner = null) {
+		/* vars cleaned in _alterTable */
 		if (!empty($owner) && ($tblrs->fields['relowner'] != $owner)) {
 			$f_schema = $this->_schema;
 			$this->fieldClean($f_schema);
@@ -1869,6 +1860,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 */
 	function alterTableTablespace($tblrs, $tablespace = null) {
+		/* vars cleaned in _alterTable */
 		if (!empty($tablespace) && ($tblrs->fields['tablespace'] != $tablespace)) {
 			$f_schema = $this->_schema;
 			$this->fieldClean($f_schema);
@@ -1890,6 +1882,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 */
 	function alterTableSchema($tblrs, $schema = null) {
+		/* vars cleaned in _alterTable */
 		if (!empty($schema) && ($tblrs->fields['nspname'] != $schema)) {
 			$f_schema = $this->_schema;
 			$this->fieldClean($f_schema);
@@ -2346,9 +2339,26 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 */
 	function beginDump() {
-		$status = parent::beginDump();
-		if ($status != 0) return $status;
+		// Begin serializable transaction (to dump consistent data)
+		$status = $this->beginTransaction();
+		if ($status != 0) return -1;
 
+		// Set serializable
+		$sql = "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE";
+		$status = $this->execute($sql);
+		if ($status != 0) {
+			$this->rollbackTransaction();
+			return -1;
+		}
+
+		// Set datestyle to ISO
+		$sql = "SET DATESTYLE = ISO";
+		$status = $this->execute($sql);
+		if ($status != 0) {
+			$this->rollbackTransaction();
+			return -1;
+		}
+		
 		// Set extra_float_digits to 2
 		$sql = "SET extra_float_digits TO 2";
 		$status = $this->execute($sql);
@@ -2356,7 +2366,9 @@ class Postgres extends ADODB_base {
 			$this->rollbackTransaction();
 			return -1;
 		}
-		}
+		
+		return 0;
+	}
 
 	/**
 	 * Ends the data object for a dump.
@@ -2381,6 +2393,66 @@ class Postgres extends ADODB_base {
 		else $oid_str = '';
 
 		return $this->selectSet("SELECT {$oid_str}* FROM \"{$relation}\"");
+	}
+	
+	/**
+	 * Returns all available autovacuum per table information.
+	 * @param $table if given, return autovacuum info for the given table or return all informations for all table
+	 *   
+	 * @return A recordset
+	 */
+	function getTableAutovacuum($table='') {
+
+		$sql = '';
+
+		if ($table !== '') {
+			$this->clean($table);
+			$c_schema = $this->_schema;
+			$this->clean($c_schema);
+
+			$sql = "SELECT c.oid, nspname, relname, pg_catalog.array_to_string(reloptions, E',') AS reloptions
+				FROM pg_class c
+					LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
+				WHERE c.relkind = 'r'::\"char\"
+					AND n.nspname NOT IN ('pg_catalog','information_schema')
+					AND c.reloptions IS NOT NULL
+					AND c.relname = '{$table}' AND n.nspname = '{$c_schema}'
+				ORDER BY nspname, relname";
+		}
+		else {
+			$sql = "SELECT c.oid, nspname, relname, pg_catalog.array_to_string(reloptions, E',') AS reloptions
+				FROM pg_class c
+					LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
+				WHERE c.relkind = 'r'::\"char\"
+					AND n.nspname NOT IN ('pg_catalog','information_schema')
+					AND c.reloptions IS NOT NULL
+				ORDER BY nspname, relname";
+
+		}
+
+		/* tmp var to parse the results */
+		$_autovacs = $this->selectSet($sql);
+
+		/* result aray to return as RS */
+		$autovacs = array();
+		while (!$_autovacs->EOF) {
+			$_ = array(
+				'nspname' => $_autovacs->fields['nspname'],
+				'relname' => $_autovacs->fields['relname']
+			);
+
+			foreach (explode(',', $_autovacs->fields['reloptions']) AS $var) {
+				list($o, $v) = explode('=', $var);
+				$_[$o] = $v; 
+			}
+
+			$autovacs[] = $_;
+			
+			$_autovacs->moveNext();
+		}
+
+		include_once('./classes/ArrayRecordSet.php');
+		return new ArrayRecordSet($autovacs);
 	}
 
 	// Row functions
@@ -2593,7 +2665,7 @@ class Postgres extends ADODB_base {
 	 * @param $key An array mapping column => value to delete
 	 * @return 0 success
 	 */
-	function deleteRow($table, $key) {
+	function deleteRow($table, $key, $schema=false) {
 		if (!is_array($key)) return -1;
 		else {
 			// Begin transaction.  We do this so that we can ensure only one row is
@@ -2603,8 +2675,10 @@ class Postgres extends ADODB_base {
 				$this->rollbackTransaction();
 				return -1;
 			}
+			
+			if ($schema === false) $schema = $this->_schema;
 
-			$status = $this->delete($table, $key, $this->_schema);
+			$status = $this->delete($table, $key, $schema);
 			if ($status != 0 || $this->conn->Affected_Rows() != 1) {
 				$this->rollbackTransaction();
 				return -2;
@@ -2625,7 +2699,9 @@ class Postgres extends ADODB_base {
 	function getSequence($sequence) {
 		$c_schema = $this->_schema;
 		$this->clean($c_schema);
+		$c_sequence = $sequence;
 		$this->fieldClean($sequence);
+		$this->clean($c_sequence);
 
 		$sql = "
 			SELECT c.relname AS seqname, s.*,
@@ -2633,7 +2709,7 @@ class Postgres extends ADODB_base {
 				u.usename AS seqowner, n.nspname
 			FROM \"{$sequence}\" AS s, pg_catalog.pg_class c, pg_catalog.pg_user u, pg_catalog.pg_namespace n
 			WHERE c.relowner=u.usesysid AND c.relnamespace=n.oid
-				AND c.relname = '{$sequence}' AND c.relkind = 'S' AND n.nspname='{$c_schema}'
+				AND c.relname = '{$c_sequence}' AND c.relkind = 'S' AND n.nspname='{$c_schema}'
 				AND n.oid = c.relnamespace";
 
 		return $this->selectSet( $sql );
@@ -2675,6 +2751,7 @@ class Postgres extends ADODB_base {
 		/* This double-cleaning is deliberate */
 		$f_schema = $this->_schema;
 		$this->fieldClean($f_schema);
+		$this->clean($f_schema);
 		$this->fieldClean($sequence);
 		$this->clean($sequence);
 
@@ -2691,14 +2768,32 @@ class Postgres extends ADODB_base {
 	 * @return -1 sequence not found
 	 */
 	function setvalSequence($sequence, $nextvalue) {
+		/* This double-cleaning is deliberate */
 		$f_schema = $this->_schema;
 		$this->fieldClean($f_schema);
-		/* This double-cleaning is deliberate */
+		$this->clean($f_schema);
 		$this->fieldClean($sequence);
 		$this->clean($sequence);
 		$this->clean($nextvalue);
 
 		$sql = "SELECT pg_catalog.SETVAL('\"{$f_schema}\".\"{$sequence}\"', '{$nextvalue}')";
+
+		return $this->execute($sql);
+	}
+
+	/**
+	 * Restart a given sequence to its start value
+	 * @param $sequence Sequence name
+	 * @return 0 success
+	 * @return -1 sequence not found
+	 */
+	function restartSequence($sequence) {
+
+		$f_schema = $this->_schema;
+		$this->fieldClean($f_schema);
+		$this->fieldClean($sequence);
+
+		$sql = "ALTER SEQUENCE \"{$f_schema}\".\"{$sequence}\" RESTART;";
 
 		return $this->execute($sql);
 	}
@@ -2766,6 +2861,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 */
 	function alterSequenceName($seqrs, $name) {
+		/* vars are cleaned in _alterSequence */
 		if (!empty($name) && ($seqrs->fields['seqname'] != $name)) {
 			$f_schema = $this->_schema;
 			$this->fieldClean($f_schema);
@@ -2789,8 +2885,11 @@ class Postgres extends ADODB_base {
 		// If owner has been changed, then do the alteration.  We are
 		// careful to avoid this generally as changing owner is a
 		// superuser only function.
+		/* vars are cleaned in _alterSequence */
 		if (!empty($owner) && ($seqrs->fields['seqowner'] != $owner)) {
-			$sql = "ALTER TABLE \"{$seqrs->fields['seqname']}\" OWNER TO \"{$owner}\"";
+			$f_schema = $this->_schema;
+			$this->fieldClean($f_schema);
+			$sql = "ALTER SEQUENCE \"{$f_schema}\".\"{$seqrs->fields['seqname']}\" OWNER TO \"{$owner}\"";
 			return $this->execute($sql);
 		}
 		return 0;
@@ -2803,6 +2902,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 */
 	function alterSequenceSchema($seqrs, $schema) {
+		/* vars are cleaned in _alterSequence */
 		if (!empty($schema) && ($seqrs->fields['nspname'] != $schema)) {
 			$f_schema = $this->_schema;
 			$this->fieldClean($f_schema);
@@ -2818,20 +2918,23 @@ class Postgres extends ADODB_base {
 	 * @param $increment The sequence incremental value
 	 * @param $minvalue The sequence minimum value
 	 * @param $maxvalue The sequence maximum value
-	 * @param $startvalue The sequence current value
+	 * @param $restartvalue The sequence current value
 	 * @param $cachevalue The sequence cache value
 	 * @param $cycledvalue Sequence can cycle ?
+	 * @param $startvalue The sequence start value when issueing a restart
 	 * @return 0 success
 	 */
 	function alterSequenceProps($seqrs, $increment,	$minvalue, $maxvalue,
-								$startvalue, $cachevalue, $cycledvalue) {
+								$restartvalue, $cachevalue, $cycledvalue, $startvalue) {
 
 		$sql = '';
+		/* vars are cleaned in _alterSequence */
 		if (!empty($increment) && ($increment != $seqrs->fields['increment_by'])) $sql .= " INCREMENT {$increment}";
 		if (!empty($minvalue) && ($minvalue != $seqrs->fields['min_value'])) $sql .= " MINVALUE {$minvalue}";
 		if (!empty($maxvalue) && ($maxvalue != $seqrs->fields['max_value'])) $sql .= " MAXVALUE {$maxvalue}";
-		if (!empty($startvalue) && ($startvalue != $seqrs->fields['last_value'])) $sql .= " RESTART {$startvalue}";
+		if (!empty($restartvalue) && ($restartvalue != $seqrs->fields['last_value'])) $sql .= " RESTART {$restartvalue}";
 		if (!empty($cachevalue) && ($cachevalue != $seqrs->fields['cache_value'])) $sql .= " CACHE {$cachevalue}";
+		if (!empty($startvalue) && ($startvalue != $seqrs->fields['start_value'])) $sql .= " START {$startvalue}";
 		// toggle cycle yes/no
 		if (!is_null($cycledvalue))	$sql .= (!$cycledvalue ? ' NO ' : '') . " CYCLE";
 		if ($sql != '') {
@@ -2854,9 +2957,10 @@ class Postgres extends ADODB_base {
 	 * @param $increment The increment
 	 * @param $minvalue The min value
 	 * @param $maxvalue The max value
-	 * @param $startvalue The starting value
+	 * @param $restartvalue The starting value
 	 * @param $cachevalue The cache value
 	 * @param $cycledvalue True if cycled, false otherwise
+	 * @param $startvalue The sequence start value when issueing a restart
 	 * @return 0 success
 	 * @return -3 rename error
 	 * @return -4 comment error
@@ -2866,7 +2970,7 @@ class Postgres extends ADODB_base {
 	 */
 	protected
 	function _alterSequence($seqrs, $name, $comment, $owner, $schema, $increment,
-	$minvalue, $maxvalue, $startvalue, $cachevalue, $cycledvalue) {
+	$minvalue, $maxvalue, $restartvalue, $cachevalue, $cycledvalue, $startvalue) {
 
 		$this->fieldArrayClean($seqrs->fields);
 
@@ -2885,11 +2989,12 @@ class Postgres extends ADODB_base {
 		$this->clean($increment);
 		$this->clean($minvalue);
 		$this->clean($maxvalue);
-		$this->clean($startvalue);
+		$this->clean($restartvalue);
 		$this->clean($cachevalue);
 		$this->clean($cycledvalue);
+		$this->clean($startvalue);
 		$status = $this->alterSequenceProps($seqrs, $increment,	$minvalue,
-			$maxvalue, $startvalue, $cachevalue, $cycledvalue);
+			$maxvalue, $restartvalue, $cachevalue, $cycledvalue, $startvalue);
 		if ($status != 0)
 			return -6;
 
@@ -2918,16 +3023,17 @@ class Postgres extends ADODB_base {
 	 * @param $increment The increment
 	 * @param $minvalue The min value
 	 * @param $maxvalue The max value
-	 * @param $startvalue The starting value
+	 * @param $restartvalue The starting value
 	 * @param $cachevalue The cache value
 	 * @param $cycledvalue True if cycled, false otherwise
+	 * @param $startvalue The sequence start value when issueing a restart
 	 * @return 0 success
 	 * @return -1 transaction error
 	 * @return -2 get existing sequence error
 	 * @return $this->_alterSequence error code
 	 */
     function alterSequence($sequence, $name, $comment, $owner=null, $schema=null, $increment=null,
-	$minvalue=null, $maxvalue=null, $startvalue=null, $cachevalue=null, $cycledvalue=null) {
+	$minvalue=null, $maxvalue=null, $restartvalue=null, $cachevalue=null, $cycledvalue=null, $startvalue=null) {
 
 		$this->fieldClean($sequence);
 
@@ -2943,7 +3049,7 @@ class Postgres extends ADODB_base {
 		}
 
 		$status = $this->_alterSequence($data, $name, $comment, $owner, $schema, $increment,
-				$minvalue, $maxvalue, $startvalue, $cachevalue, $cycledvalue);
+				$minvalue, $maxvalue, $restartvalue, $cachevalue, $cycledvalue, $startvalue);
 
 		if ($status != 0) {
 			$this->rollbackTransaction();
@@ -2988,7 +3094,7 @@ class Postgres extends ADODB_base {
 				pg_catalog.obj_description(c.oid, 'pg_class') AS relcomment
 			FROM pg_catalog.pg_class c
 				LEFT JOIN pg_catalog.pg_namespace n ON (n.oid = c.relnamespace)
-			WHERE (c.relname = '$view') AND n.nspname='{$c_schema}'";
+			WHERE (c.relname = '{$view}') AND n.nspname='{$c_schema}'";
 
 		return $this->selectSet($sql);
 	}
@@ -3070,6 +3176,7 @@ class Postgres extends ADODB_base {
 	 */
 	function alterViewName($vwrs, $name) {
 		// Rename (only if name has changed)
+		/* $vwrs and $name are cleaned in _alterView */
 		if (!empty($name) && ($name != $vwrs->fields['relname'])) {
 			$f_schema = $this->_schema;
 			$this->fieldClean($f_schema);
@@ -3090,6 +3197,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 */
 	function alterViewOwner($vwrs, $owner = null) {
+		/* $vwrs and $owner are cleaned in _alterView */
 		if ((!empty($owner)) && ($vwrs->fields['relowner'] != $owner)) {
 			$f_schema = $this->_schema;
 			$this->fieldClean($f_schema);
@@ -3109,6 +3217,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 */
 	function alterViewSchema($vwrs, $schema) {
+		/* $vwrs and $schema are cleaned in _alterView */
 		if (!empty($schema) && ($vwrs->fields['nspname'] != $schema)) {
 			$f_schema = $this->_schema;
 			$this->fieldClean($f_schema);
@@ -3174,7 +3283,6 @@ class Postgres extends ADODB_base {
 	 */
 	function alterView($view, $name, $owner, $schema, $comment) {
 
-		$this->fieldClean($view);
 		$data = $this->getView($view);
 		if ($data->recordCount() != 1)
 			return -2;
@@ -3236,6 +3344,34 @@ class Postgres extends ADODB_base {
 		return $this->selectSet($sql);
 	}
 
+	/** 
+	 * test if a table has been clustered on an index
+	 * @param $table The table to test
+	 * 
+	 * @return true if the table has been already clustered
+	 */
+	function alreadyClustered($table) {
+		
+		$c_schema = $this->_schema;
+		$this->clean($c_schema);
+		$this->clean($table);
+
+		$sql = "SELECT i.indisclustered
+			FROM pg_catalog.pg_class c, pg_catalog.pg_index i
+			WHERE c.relname = '{$table}'
+				AND c.oid = i.indrelid AND i.indisclustered
+				AND c.relnamespace = (SELECT oid FROM pg_catalog.pg_namespace
+					WHERE nspname='{$c_schema}')
+				";
+		
+		$v = $this->selectSet($sql);
+		
+		if ($v->recordCount() == 0)
+			return false;
+			
+		return true;
+	}
+	
 	/**
 	 * Creates an index
 	 * @param $name The index name
@@ -3331,16 +3467,24 @@ class Postgres extends ADODB_base {
 	 * @param $table The table the index is on
 	 * @return 0 success
 	 */
-	function clusterIndex($index, $table) {
-
-		$f_schema = $this->_schema;
-		$this->fieldClean($f_schema);
-		$this->fieldClean($index);
-		$this->fieldClean($table);
-
+	function clusterIndex($table='', $index='') {
+		
+		$sql = 'CLUSTER';
+		
 		// We don't bother with a transaction here, as there's no point rolling
 		// back an expensive cluster if a cheap analyze fails for whatever reason
-		$sql = "CLUSTER \"{$f_schema}\".\"{$table}\" USING \"{$index}\"";
+		
+		if (!empty($table)) {
+			$f_schema = $this->_schema;
+			$this->fieldClean($f_schema);
+			$this->fieldClean($table);
+			$sql .= " \"{$f_schema}\".\"{$table}\"";
+			
+			if (!empty($index)) {
+				$this->fieldClean($index);
+				$sql .= " USING \"{$index}\"";
+			}
+		}
 
 		return $this->execute($sql);
 	}
@@ -3399,11 +3543,10 @@ class Postgres extends ADODB_base {
 	 * @return a recordset
 	 */
 	function getConstraintsWithFields($table) {
-		global $data;
 
 		$c_schema = $this->_schema;
 		$this->clean($c_schema);
-		$data->clean($table);
+		$this->clean($table);
 
 		// get the max number of col used in a constraint for the table
 		$sql = "SELECT DISTINCT
@@ -3542,7 +3685,9 @@ class Postgres extends ADODB_base {
 		$this->fieldClean($f_schema);
 		$c_schema = $this->_schema;
 		$this->clean($c_schema);
-		$this->clean($table);
+		$c_table = $table;
+		$this->fieldClean($table);
+		$this->clean($c_table);
 		$this->clean($name);
 
 		// Begin transaction
@@ -3558,7 +3703,7 @@ class Postgres extends ADODB_base {
 		}
 
 		// Delete the check constraint
-		$sql = "DELETE FROM pg_relcheck WHERE rcrelid=(SELECT oid FROM pg_catalog.pg_class WHERE relname='{$table}'
+		$sql = "DELETE FROM pg_relcheck WHERE rcrelid=(SELECT oid FROM pg_catalog.pg_class WHERE relname='{$c_table}'
 			AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE
 			nspname = '{$c_schema}')) AND rcname='{$name}'";
 	   	$status = $this->execute($sql);
@@ -3569,10 +3714,10 @@ class Postgres extends ADODB_base {
 
 		// Update the pg_class catalog to reflect the new number of checks
 		$sql = "UPDATE pg_class SET relchecks=(SELECT COUNT(*) FROM pg_relcheck WHERE
-					rcrelid=(SELECT oid FROM pg_catalog.pg_class WHERE relname='{$table}'
+					rcrelid=(SELECT oid FROM pg_catalog.pg_class WHERE relname='{$c_table}'
 						AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE
 						nspname = '{$c_schema}')))
-					WHERE relname='{$table}'";
+					WHERE relname='{$c_table}'";
 	   	$status = $this->execute($sql);
 		if ($status != 0) {
 			$this->rollbackTransaction();
@@ -3654,15 +3799,21 @@ class Postgres extends ADODB_base {
 	 */
 	function getLinkingKeys($tables) {
 		if (!is_array($tables)) return -1;
-
+		
+		$this->clean($tables[0]['tablename']);
+		$this->clean($tables[0]['schemaname']);
 		$tables_list = "'{$tables[0]['tablename']}'";
 		$schema_list = "'{$tables[0]['schemaname']}'";
 		$schema_tables_list = "'{$tables[0]['schemaname']}.{$tables[0]['tablename']}'";
+
 		for ($i = 1; $i < sizeof($tables); $i++) {
+			$this->clean($tables[$i]['tablename']);
+			$this->clean($tables[$i]['schemaname']);
 			$tables_list .= ", '{$tables[$i]['tablename']}'";
 			$schema_list .= ", '{$tables[$i]['schemaname']}'";
 			$schema_tables_list .= ", '{$tables[$i]['schemaname']}.{$tables[$i]['tablename']}'";
 		}
+
 		$maxDimension = 1;
 
 		$sql = "
@@ -4169,6 +4320,7 @@ class Postgres extends ADODB_base {
 
 		// Rename the function, if necessary
 		$this->fieldClean($newname);
+		/* $funcname is escaped in createFunction */
 		if ($funcname != $newname) {
 			$sql = "ALTER FUNCTION \"{$f_schema}\".\"{$funcname}\"({$args}) RENAME TO \"{$newname}\"";
 			$status = $this->execute($sql);
@@ -4197,7 +4349,8 @@ class Postgres extends ADODB_base {
 		// Alter the schema, if necessary
 		if ($this->hasFunctionAlterSchema()) {
 		    $this->fieldClean($newschema);
-		    if ($funcschema != $newschema) {
+		    /* $funcschema is escaped in createFunction */
+		    if ($funcschema != $newschema) { 
 				$sql = "ALTER FUNCTION \"{$f_schema}\".\"{$funcname}\"({$args}) SET SCHEMA \"{$newschema}\"";
 				$status = $this->execute($sql);
 				if ($status != 0) {
@@ -4238,7 +4391,7 @@ class Postgres extends ADODB_base {
 		
 		$this->fieldClean($funcname);
 		$this->clean($args);
-		$this->clean($language);
+		$this->fieldClean($language);
 		$this->arrayClean($flags);
 		$this->clean($cost);
 		$this->clean($rows);
@@ -4481,7 +4634,7 @@ class Postgres extends ADODB_base {
 	 * @return A recordset
 	 */
 	function getEnumValues($name) {
-		$this->fieldClean($name);
+		$this->clean($name);
 
 		$sql = "SELECT enumlabel AS enumval
 		FROM pg_catalog.pg_type t JOIN pg_catalog.pg_enum e ON (t.oid=e.enumtypid)
@@ -4782,7 +4935,7 @@ class Postgres extends ADODB_base {
 			FROM pg_catalog.pg_trigger t, pg_catalog.pg_proc p, pg_catalog.pg_namespace ns
 			WHERE t.tgrelid = (SELECT oid FROM pg_catalog.pg_class WHERE relname='{$table}'
 				AND relnamespace=(SELECT oid FROM pg_catalog.pg_namespace WHERE nspname='{$c_schema}'))
-				AND (NOT tgisconstraint OR NOT EXISTS
+				AND ( tgconstraint = 0 OR NOT EXISTS
 						(SELECT 1 FROM pg_catalog.pg_depend d    JOIN pg_catalog.pg_constraint c
 							ON (d.refclassid = c.tableoid AND d.refobjid = c.oid)
 						WHERE d.classid = t.tableoid AND d.objid = t.oid AND d.deptype = 'i' AND c.contype = 'f'))
@@ -5613,16 +5766,16 @@ class Postgres extends ADODB_base {
  	 * @return FTS configuration information
  	 */
  	function getFtsMappingByName($ftscfg, $mapping) {
-		$f_schema = $this->_schema;
-		$this->fieldClean($f_schema);
- 		$this->fieldClean($ftscfg);
- 		$this->fieldClean($mapping);
+		$c_schema = $this->_schema;
+		$this->clean($c_schema);
+ 		$this->clean($ftscfg);
+ 		$this->clean($mapping);
 
  		$oidSet = $this->selectSet("SELECT c.oid, cfgparser
 			FROM pg_catalog.pg_ts_config AS c
 				LEFT JOIN pg_catalog.pg_namespace AS n ON n.oid = c.cfgnamespace
 			WHERE c.cfgname = '{$ftscfg}'
-				AND n.nspname='{$_schema}'");
+				AND n.nspname='{$c_schema}'");
 				
  		$oid = $oidSet->fields['oid'];
  		$cfgparser = $oidSet->fields['cfgparser'];
@@ -5748,6 +5901,7 @@ class Postgres extends ADODB_base {
 	 * @return 0 success
 	 */
 	function renameAggregate($aggrschema, $aggrname, $aggrtype, $newaggrname) {
+		/* this function is called from alterAggregate where params are cleaned */
 		$sql = "ALTER AGGREGATE \"{$aggrschema}\"" . '.' . "\"{$aggrname}\" (\"{$aggrtype}\") RENAME TO \"{$newaggrname}\"";
 		return $this->execute($sql);
 	}
@@ -6974,7 +7128,6 @@ class Postgres extends ADODB_base {
 
 	/**
 	 * Analyze a database
-	 * @note PostgreSQL 7.2 finally had an independent ANALYZE command
 	 * @param $table (optional) The table to analyze
 	 */
 	function analyzeDB($table = '') {
@@ -6995,8 +7148,8 @@ class Postgres extends ADODB_base {
 	 * Vacuums a database
 	 * @param $table The table to vacuum
  	 * @param $analyze If true, also does analyze
-	 * @param $full If true, selects "full" vacuum (PostgreSQL >= 7.2)
-	 * @param $freeze If true, selects aggressive "freezing" of tuples (PostgreSQL >= 7.2)
+	 * @param $full If true, selects "full" vacuum
+	 * @param $freeze If true, selects aggressive "freezing" of tuples
 	 */
 	function vacuumDB($table = '', $analyze = false, $full = false, $freeze = false) {
 
@@ -7015,19 +7168,93 @@ class Postgres extends ADODB_base {
 	}
 
 	/**
-	 * Returns all available process information.
-	 * @return A recordset
+	 * Returns all autovacuum global configuration
+	 * @return associative array array( param => value, ...)
 	 */
 	function getAutovacuum() {
-		$sql = "
-			SELECT vacrelid, nspname, relname, enabled, vac_base_thresh,
-				vac_scale_factor, anl_base_thresh, anl_scale_factor, vac_cost_delay, vac_cost_limit
-			FROM pg_autovacuum
-				join pg_class on (oid=vacrelid)
-				join pg_namespace on (oid=relnamespace)
-			ORDER BY nspname, relname";
 
-		return $this->selectSet($sql);
+		$_defaults = $this->selectSet("SELECT name, setting
+			FROM pg_catalog.pg_settings
+			WHERE 
+				name = 'autovacuum' 
+				OR name = 'autovacuum_vacuum_threshold'
+				OR name = 'autovacuum_vacuum_scale_factor'
+				OR name = 'autovacuum_analyze_threshold'
+				OR name = 'autovacuum_analyze_scale_factor'
+				OR name = 'autovacuum_vacuum_cost_delay'
+				OR name = 'autovacuum_vacuum_cost_limit'
+				OR name = 'vacuum_freeze_min_age'
+				OR name = 'autovacuum_freeze_max_age'
+			"
+		);
+
+		$ret = array();
+		while (!$_defaults->EOF) {
+			$ret[$_defaults->fields['name']] = $_defaults->fields['setting'];
+			$_defaults->moveNext();
+		}
+
+		return $ret;
+	}
+
+	/**
+	 * Returns all available autovacuum per table information.
+	 * @return A recordset
+	 */
+	function saveAutovacuum($table, $vacenabled, $vacthreshold, $vacscalefactor, $anathresold,
+		$anascalefactor, $vaccostdelay, $vaccostlimit)
+	{	
+		$f_schema = $this->_schema;
+		$this->fieldClean($f_schema);
+		$this->fieldClean($table);
+
+		$sql = "ALTER TABLE \"{$f_schema}\".\"{$table}\" SET (";
+
+		if (!empty($vacenabled)) {
+			$this->clean($vacenabled);
+			$params[] = "autovacuum_enabled='{$vacenabled}'";
+		}
+		if (!empty($vacthreshold)) {
+			$this->clean($vacthreshold);
+			$params[] = "autovacuum_vacuum_threshold='{$vacthreshold}'";
+		}
+		if (!empty($vacscalefactor)) {
+			$this->clean($vacscalefactor);
+			$params[] = "autovacuum_vacuum_scale_factor='{$vacscalefactor}'";
+		}
+		if (!empty($anathresold)) {
+			$this->clean($anathresold);
+			$params[] = "autovacuum_analyze_threshold='{$anathresold}'";
+		}
+		if (!empty($anascalefactor)) {
+			$this->clean($anascalefactor);
+			$params[] = "autovacuum_analyze_scale_factor='{$anascalefactor}'";
+		}
+		if (!empty($vaccostdelay)) {
+			$this->clean($vaccostdelay);
+			$params[] = "autovacuum_vacuum_cost_delay='{$vaccostdelay}'";
+		}
+		if (!empty($vaccostlimit)) {
+			$this->clean($vaccostlimit);
+			$params[] = "autovacuum_vacuum_cost_limit='{$vaccostlimit}'";
+		}
+
+		$sql = $sql . implode(',', $params) . ');';
+
+		return $this->execute($sql);
+	}
+	
+	function dropAutovacuum($table) {
+		$f_schema = $this->_schema;
+		$this->fieldClean($f_schema);
+		$this->fieldClean($table);
+		
+		return $this->execute("
+			ALTER TABLE \"{$f_schema}\".\"{$table}\" RESET (autovacuum_enabled, autovacuum_vacuum_threshold,
+				autovacuum_vacuum_scale_factor, autovacuum_analyze_threshold, autovacuum_analyze_scale_factor,
+				autovacuum_vacuum_cost_delay, autovacuum_vacuum_cost_limit
+			);"
+		);
 	}
 
 	/**
@@ -7246,7 +7473,7 @@ class Postgres extends ADODB_base {
 
 		// Loop over each line in the file
 		while (!feof($fd)) {
-			$line = fgets($fd, 32768);
+			$line = fgets($fd);
 			$lineno++;
 
 			// Nothing left on line? Then ignore...
@@ -7279,7 +7506,7 @@ class Postgres extends ADODB_base {
     			 */
 
     			/* in quote? */
-    			if ($in_quote != 0)
+    			if ($in_quote !== 0)
     			{
     				/*
     				 * end of quote if matching non-backslashed character.
@@ -7322,7 +7549,7 @@ class Postgres extends ADODB_base {
 
 				/*
 				 * start of $foo$ type quote?
-	 */
+				 */
 				else if (!$dol_quote && $this->valid_dolquote(substr($line, $i))) {
 					$dol_end = strpos(substr($line, $i + 1), '$');
 					$dol_quote = substr($line, $i, $dol_end + 1);
@@ -7341,9 +7568,9 @@ class Postgres extends ADODB_base {
     			}
 
     			/* count nested parentheses */
-    			else if (substr($line, $i, 1) == '(') {
+				else if (substr($line, $i, 1) == '(') {
     				$paren_level++;
-	}
+				}
 
     			else if (substr($line, $i, 1) == ')' && $paren_level > 0) {
     				$paren_level--;
@@ -7359,7 +7586,7 @@ class Postgres extends ADODB_base {
     					/*
     					 * insert a cosmetic newline, if this is not the first
     					 * line in the buffer
-	 */
+						 */
     					if (strlen($query_buf) > 0)
     					    $query_buf .= "\n";
     					/* append the line to the query buffer */
@@ -7385,8 +7612,8 @@ class Postgres extends ADODB_base {
             						break;
             					}
             				}
-	}
-	}
+            			}
+            		}
 
 					$query_buf = null;
 					$query_start = $i + $thislen;
@@ -7397,7 +7624,7 @@ class Postgres extends ADODB_base {
 				 * We grab the whole string so that we don't
 				 * mistakenly see $foo$ inside an identifier as the start
 				 * of a dollar quote.
-	 */
+				 */
 				// XXX: multibyte here
 				else if (preg_match('/^[_[:alpha:]]$/', substr($line, $i, 1))) {
 					$sub = substr($line, $i, $thislen);
@@ -7409,7 +7636,7 @@ class Postgres extends ADODB_base {
 					// Since we're now over the next character to be examined, it is necessary
 					// to move back one space.
 					$i-=$prevlen;
-		}
+				}
     	    } // end for
 
     		/* Put the rest of the line in the query buffer. */
@@ -7428,7 +7655,7 @@ class Postgres extends ADODB_base {
     	/*
     	 * Process query at the end of file without a semicolon, so long as
     	 * it's non-empty.
-	 */
+		 */
     	if (strlen($query_buf) > 0 && strspn($query_buf, " \t\n\r") != strlen($query_buf))
     	{
 			// Execute the query (supporting 4.1.x PHP...)
@@ -7447,10 +7674,10 @@ class Postgres extends ADODB_base {
 					if ($copy == "\\.\n" || $copy == "\\.\r\n") {
 						pg_end_copy($conn);
 						break;
-	}
+					}
+				}
+			}
 		}
-		}
-	}
 
 		fclose($fd);
 
@@ -7493,8 +7720,9 @@ class Postgres extends ADODB_base {
 		$this->fieldClean($table);
 
 		if (isset($_REQUEST['schema'])) {
-			$this->fieldClean($_REQUEST['schema']);
-			$sql .= "\"{$_REQUEST['schema']}\".";
+			$f_schema = $_REQUEST['schema'];
+			$this->fieldClean($f_schema);
+			$sql .= "\"{$f_schema}\".";
 		}
 		$sql .= "\"{$table}\"";
 
@@ -7743,7 +7971,7 @@ class Postgres extends ADODB_base {
 		$sql = "SELECT * FROM pg_stat_database WHERE datname='{$database}'";
 
 		return $this->selectSet($sql);
-					}
+	}
 
 	/**
 	 * Fetches tuple statistics for a table
@@ -8045,11 +8273,10 @@ class Postgres extends ADODB_base {
 	function hasAlterDatabaseRename() { return true; }
 	function hasAlterSchema() { return true; }
 	function hasAlterSchemaOwner() { return true; }
-	function hasAlterSequenceProps() { return true; }
 	function hasAlterSequenceSchema() { return true; }
+	function hasAlterSequenceStart() { return true; }
 	function hasAlterTableSchema() { return true; }
 	function hasAutovacuum() { return true; }
-	function hasAutovacuumSysTable() { return false; }
 	function hasCreateTableLike() { return true; }
 	function hasCreateTableLikeWithConstraints() { return true; }
 	function hasCreateTableLikeWithIndexes() { return true; }
@@ -8081,6 +8308,7 @@ class Postgres extends ADODB_base {
 	function hasMagicTypes() { return true; }
 	function hasQueryKill() { return true; }
 	function hasConcurrentIndexBuild() { return true; }
+	function hasForceReindex() { return false; }
 	
 }
 ?>

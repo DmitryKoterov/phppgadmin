@@ -14,15 +14,15 @@ function hideAc() {
 function triggerAc(ac) {
 	if (ac) {
 		jQuery.ppa.attrs
-			.keyup(autocomplete)
-			.keypress(move)
+			.bind('keyup.ac_action', autocomplete)
+			.bind('focus.ac_action', autocomplete)
+			.bind('keypress.ac_action', move)
 			.addClass('ac_field');
 	}
 	else {
 		jQuery.ppa.attrs
 			.removeClass('ac_field')
-			.unbind('keyup',autocomplete)
-			.unbind('keypress',move);
+			.unbind('.ac_action');
 	}
 }
 
@@ -53,7 +53,8 @@ function selectVal(index) {
 function openlist(e) {
 	var elt = jQuery(e);
 	var attnum = elt.attr('id').match(/\d+/)[0];
-	var conid = attrs['attr_'+attnum];
+	/* FIXME we only support the first FK constraint of the field */
+	var conid = attrs['attr_'+attnum][0];
 
 	var constr = constrs["constr_" + conid];
 
@@ -126,7 +127,7 @@ function move(event) {
 	}
 }
 
-/* open/update the value list on keyup event */
+/* open/update the value list */
 function autocomplete(event) {
 
 	/* if pressing enter, fire a click on the selected line */
@@ -134,7 +135,6 @@ function autocomplete(event) {
 		if (jQuery.ppa.i > 0) {
 			jQuery.ppa.fklist.find('tr').eq(jQuery.ppa.i).click();
 		}
-		hideAc();
 		return false;
 	}
 	/* ignoring 38:up and 40:down */
@@ -153,6 +153,11 @@ function autocomplete(event) {
 	}
 	/* request the list of possible values asynchronously */
 	else {
+		/* if we refresh because of a value update, 
+		 * we reset back to offset 0 so we catch values
+		 * if list is smaller than 11 values */
+		if (event.type == 'keyup')
+			jQuery.ppa.o = 0;
 		openlist(this);
 	}
 
@@ -176,24 +181,26 @@ with(jQuery('tr.acline')) {
 }
 
 jQuery('#fkprev').live('click', function () {
-	jQuery.ppa.o-=11;
+	jQuery.ppa.o -= 11;
 	/* get the field that is the previous html elt from the #fklist
-	 * and trigger its keyup to refresh the list */
-	jQuery('#fklist').prev().keyup().focus();
+	 * and trigger its focus to refresh the list AND actualy 
+	 * focus back on the field */
+	jQuery('#fklist').prev().focus();
 });
 
 jQuery('#fknext').live('click', function () {
-	jQuery.ppa.o+=11;
+	jQuery.ppa.o += 11;
 	/* get the field that is the previous html elt from the #fklist
-	 * and trigger its keyup to refresh the list */
-	jQuery('#fklist').prev().keyup().focus();
+	 * and trigger its focus to refresh the list AND actualy 
+	 * focus back on the field*/
+	jQuery('#fklist').prev().focus();
 });
 
 jQuery(document).ready(function () {
 	/* register some global value in the ppa namespace */
 	jQuery.ppa = {
 		fklist: jQuery('#fklist'),
-		attrs: jQuery('input[id^=attr_]'),
+		attrs: jQuery('input[id^=attr_]'), // select fields with FK
 		fkbg: jQuery('#fkbg'),
 		i:0, // selected value indice
 		o:0 // offset when navigating prev/next

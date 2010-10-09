@@ -5,7 +5,7 @@
 	 * maintainer S. Malmqvist &lt;samoola@slak.nu&gt;
 	 * Due to lack of SQL knowledge som translations may be wrong, mail me the correct one and ill fix it
 	 *
-	 * $Id: swedish.php,v 1.12 2007/04/24 11:43:16 soranzo Exp $
+	 * $Id: swedish.php,v 1.11 2007/04/24 11:42:07 soranzo Exp $
 	 */
 
 	// Language and character set
@@ -224,9 +224,9 @@
 	$lang['strgroupdropped'] = 'Grupp raderad.';
 	$lang['strgroupcreatedbad'] = 'Misslyckades att skapa grupp.';	
 	$lang['strconfdropgroup'] = '&#196;r du s&#228;ker p&#229; att du vill radera grupp &quot;%s&quot;?';
-	$lang['strprivileges'] = 'Privilegier';
+	$lang['strprivileges'] = 'R&#228;ttigheter';
 	$lang['strgrant'] = 'Till&#229;t';
-	$lang['strgranted'] = 'Privilegier &#228;ndrade.';
+	$lang['strgranted'] = 'R&#228;ttigheter &#228;ndrade.';
 	$lang['strgroupdroppedbad'] = 'Misslyckades att radera grupp.';
 	$lang['straddmember'] = 'L&#228;gg till medlem';
 	$lang['strmemberadded'] = 'Medlem inlagd.';
@@ -239,7 +239,7 @@
 	$lang['strnoprivileges'] = 'Detta objekt har standard &#228;garr&#228;ttigheter.';
 	$lang['strmembers'] = 'Medelemmar';
 	$lang['strrevoke'] = 'Ta tillbaka';
-	$lang['strgrantbad'] = 'Du m&#229;ste ange minst en anv&#228;ndare eller grupp och minst ett privilegium.';
+	$lang['strgrantbad'] = 'Du m&#229;ste ange minst en anv&#228;ndare eller grupp och minst en r&#228;ttighet.';
 	$lang['strgrantfailed'] = 'Misslyckades att &#228;ndra r&#228;ttigheter.';
 	$lang['stralterprivs'] = '&#196;ndra r&#228;ttigheter';
 	$lang['strdatabase'] = 'Databas';
@@ -287,13 +287,13 @@
 	$lang['strviewconditions'] = 'Ytterligare villkor';
 
 	// Sequences
-	$lang['strsequence'] = 'F&#246;ljd';
-	$lang['strsequences'] = 'F&#246;ljder';
-	$lang['strshowallsequences'] = 'Visa alla f&#246;ljder';
-	$lang['strnosequence'] = 'Hittade ingen f&#246;ljd.';
-	$lang['strnosequences'] = 'Hittade inga f&#246;ljder.';
-	$lang['strcreatesequence'] = 'Skapa f&#246;ljd';
-	$lang['strlastvalue'] = 'Sista v&#228;rde';
+	$lang['strsequence'] = 'Sekvens';
+	$lang['strsequences'] = 'Sekvenser';
+	$lang['strshowallsequences'] = 'Visa alla sekvenser';
+	$lang['strnosequence'] = 'Hittade ingen sekvens.';
+	$lang['strnosequences'] = 'Hittade inga sekvenser.';
+	$lang['strcreatesequence'] = 'Skapa sekvens';
+	$lang['strlastvalue'] = 'Senaste v&#228;rde';
 	$lang['strincrementby'] = '&#214;ka med';
 	$lang['strstartvalue'] = 'Startv&#228;rde';
 	$lang['strmaxvalue'] = 'St&#246;rsta v&#228;rde';
@@ -301,12 +301,12 @@
 	$lang['strcachevalue'] = 'V&#228;rde p&#229; cache';
 	$lang['strlogcount'] = 'R&#228;kna log';
 	$lang['striscycled'] = '&#196;r upprepad?';
-	$lang['strsequenceneedsname'] = 'Du m&#229;ste ge ett namn till din f&#246;ljd.';
-	$lang['strsequencecreated'] = 'F&#246;ljd skapad.';
-	$lang['strsequencecreatedbad'] = 'Misslyckades att skapa f&#246;ljd.'; 
-	$lang['strconfdropsequence'] = '&#196;r du s&#228;ker p&#229; att du vill radera f&#246;ljden &quot;%s&quot;?';
-	$lang['strsequencedropped'] = 'F&#246;ljden borrtagen.';
-	$lang['strsequencedroppedbad'] = 'Misslyckades att radera f&#246;ljd.';
+	$lang['strsequenceneedsname'] = 'Du m&#229;ste ge ett namn till din sekvens.';
+	$lang['strsequencecreated'] = 'Sekvens skapad.';
+	$lang['strsequencecreatedbad'] = 'Misslyckades att skapa sekvens.'; 
+	$lang['strconfdropsequence'] = '&#196;r du s&#228;ker p&#229; att du vill radera sekvensen &quot;%s&quot;?';
+	$lang['strsequencedropped'] = 'Sekvensen borrtagen.';
+	$lang['strsequencedroppedbad'] = 'Misslyckades att radera sekvens.';
 
 	// Indexes
 	$lang['strindex'] = 'Index';
@@ -314,8 +314,8 @@
 	$lang['strindexname'] = 'Indexnamn';
 	$lang['strshowallindexes'] = 'Visa alla index';
 	$lang['strnoindex'] = 'Hittade inget index.';
-	$lang['strsequencereset'] = 'Nollst&#228;ll f&#246;ljd.';
-	$lang['strsequenceresetbad'] = 'Misslyckades att nollst&#228;lla f&#246;ljd.';
+	$lang['strsequencereset'] = 'Nollst&#228;ll sekvens.';
+	$lang['strsequenceresetbad'] = 'Misslyckades att nollst&#228;lla sekvens.';
 	$lang['strnoindexes'] = 'Hittade inga index.';
 	$lang['strcreateindex'] = 'Skapa index';
 	$lang['strindexname'] = 'Indexnamn';

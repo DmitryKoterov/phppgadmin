@@ -11,15 +11,15 @@
 
 	// Set error reporting level to max
 	error_reporting(E_ALL);
-
+ 
 	// Application name
 	$appName = 'phpPgAdmin';
 
 	// Application version
-	$appVersion = '5.0-dev';
+	$appVersion = '5.0-beta2';
 
 	// PostgreSQL and PHP minimum version
-	$postgresqlMinVer = '7.3';
+	$postgresqlMinVer = '7.4';
 	$phpMinVer = '5.0';
 
 	// Check the version of PHP
@@ -69,7 +69,6 @@
 	$misc->setForm();
 
 	// Enforce PHP environment
-	ini_set('magic_quotes_gpc', 0);
 	ini_set('magic_quotes_runtime', 0);
 	ini_set('magic_quotes_sybase', 0);
 	ini_set('arg_separator.output', '&amp;');
@@ -92,6 +91,19 @@
 		}
 
 		$_reload_browser = true;
+	}
+
+	/* select the theme */
+	unset($_theme);
+ 
+	// 1. Check for the theme from a request var
+	if (isset($_REQUEST['theme']) && is_file("./themes/{$_REQUEST['theme']}/global.css")) {
+		$_theme = $_SESSION['ppaTheme'] = $conf['theme'] = $_REQUEST['theme'];
+	}
+	
+	// 2. Check for theme session var
+	if (!isset($_theme) && isset($_SESSION['ppaTheme']) && is_file("./themes/{$_SESSION['ppaTheme']}/global.css")) {
+		$conf['theme']  = $_SESSION['ppaTheme'];
 	}
 
 	// Determine language file to import:
@@ -158,6 +170,10 @@
 			exit;
 	    }
 		$_server_info = $misc->getServerInfo();
+
+		/* starting with PostgreSQL 9.0, we can set the application name */
+		if(isset($_server_info['pgVersion']) && $_server_info['pgVersion'] >= 9)
+			putenv("PGOPTIONS=--application_name={$appName}_{$appVersion}");
 
 		// Redirect to the login form if not logged in
 		if (!isset($_server_info['username'])) {

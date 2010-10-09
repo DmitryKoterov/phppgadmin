@@ -58,20 +58,20 @@
 						$_REQUEST['ops'][$attrs->fields['attname']] = null;
 					// Continue drawing row
 					$id = (($i % 2) == 0 ? '1' : '2');
-					echo "<tr>\n";
-					echo "<td class=\"data{$id}\" style=\"white-space: nowrap;\">";
+					echo "<tr class=\"data{$id}\">\n";
+					echo "<td style=\"white-space:nowrap;\">";
 					echo "<input type=\"checkbox\" name=\"show[", htmlspecialchars($attrs->fields['attname']), "]\"",
 						isset($_REQUEST['show'][$attrs->fields['attname']]) ? ' checked="checked"' : '', " /></td>";
-					echo "<td class=\"data{$id}\" style=\"white-space: nowrap;\">", $misc->printVal($attrs->fields['attname']), "</td>";
-					echo "<td class=\"data{$id}\" style=\"white-space: nowrap;\">", $misc->printVal($data->formatType($attrs->fields['type'], $attrs->fields['atttypmod'])), "</td>";
-					echo "<td class=\"data{$id}\" style=\"white-space: nowrap;\">";
+					echo "<td style=\"white-space:nowrap;\">", $misc->printVal($attrs->fields['attname']), "</td>";
+					echo "<td style=\"white-space:nowrap;\">", $misc->printVal($data->formatType($attrs->fields['type'], $attrs->fields['atttypmod'])), "</td>";
+					echo "<td style=\"white-space:nowrap;\">";
 					echo "<select name=\"ops[{$attrs->fields['attname']}]\">\n";
 					foreach (array_keys($data->selectOps) as $v) {
 						echo "<option value=\"", htmlspecialchars($v), "\"", ($v == $_REQUEST['ops'][$attrs->fields['attname']]) ? ' selected="selected"' : '', 
 						">", htmlspecialchars($v), "</option>\n";
 					}
 					echo "</select></td>\n";
-					echo "<td class=\"data{$id}\" style=\"white-space: nowrap;\">", $data->printField("values[{$attrs->fields['attname']}]",
+					echo "<td style=\"white-space:nowrap;\">", $data->printField("values[{$attrs->fields['attname']}]",
 						$_REQUEST['values'][$attrs->fields['attname']], $attrs->fields['type']), "</td>";
 					echo "</tr>\n";
 					$i++;
@@ -111,7 +111,7 @@
 				$query = $data->getSelectSQL($_REQUEST['view'], array_keys($_POST['show']),
 					$_POST['values'], $_POST['ops']);
 				$_REQUEST['query'] = $query;
-				$_REQUEST['return_url'] = "views.php?action=confselectrows&amp;{$misc->href}&amp;view={$_REQUEST['view']}";
+				$_REQUEST['return_url'] = "views.php?action=confselectrows&amp;{$misc->href}&amp;view=". urlencode($_REQUEST['view']);
 				$_REQUEST['return_desc'] = $lang['strback'];
 			
                                 $_no_output = true;	
@@ -355,7 +355,7 @@
 		echo "<tr>\n<td class=\"data1\">\n";		
 		
 		$arrTables = array();
-		while (!$tables->EOF) {						
+		while (!$tables->EOF) {
 			$arrTmp = array();
 			$arrTmp['schemaname'] = $tables->fields['nspname'];
 			$arrTmp['tablename'] = $tables->fields['relname'];
@@ -445,6 +445,7 @@
 
 			foreach ($_POST['formFields'] AS $curField) {
 				$arrTmp = unserialize($curField);
+				$data->fieldArrayClean($arrTmp);
 				if (! empty($_POST['dblFldMeth']) ) { // doublon control
 					if (empty($tmpHsh[$arrTmp['fieldname']])) { // field does not exist
 						$selFields .= "\"{$arrTmp['schemaname']}\".\"{$arrTmp['tablename']}\".\"{$arrTmp['fieldname']}\", ";
@@ -485,6 +486,8 @@
 							
 							$arrLeftLink = unserialize($curLink['leftlink']);
 							$arrRightLink = unserialize($curLink['rightlink']);
+							$data->fieldArrayClean($arrLeftLink);
+							$data->fieldArrayClean($arrRightLink);
 							
 							$tbl1 = "\"{$arrLeftLink['schemaname']}\".\"{$arrLeftLink['tablename']}\"";
 							$tbl2 = "\"{$arrRightLink['schemaname']}\".\"{$arrRightLink['tablename']}\"";
@@ -513,6 +516,7 @@
 			if (!strlen($linkFields) ) {
 				foreach ($_POST['formTables'] AS $curTable) {
 					$arrTmp = unserialize($curTable);
+					$data->fieldArrayClean($arrTmp);
 					$linkFields .= strlen($linkFields) ? ", \"{$arrTmp['schemaname']}\".\"{$arrTmp['tablename']}\"" : "\"{$arrTmp['schemaname']}\".\"{$arrTmp['tablename']}\"";
 				}
 			}
@@ -522,6 +526,7 @@
 				foreach ($_POST['formCondition'] AS $curCondition) {
 					if (strlen($curCondition['field']) && strlen($curCondition['txt']) ) {
 						$arrTmp = unserialize($curCondition['field']);
+						$data->fieldArrayClean($arrTmp);
 						$addConditions .= strlen($addConditions) ? " AND \"{$arrTmp['schemaname']}\".\"{$arrTmp['tablename']}\".\"{$arrTmp['fieldname']}\" {$curCondition['operator']} '{$curCondition['txt']}' " 
 							: " \"{$arrTmp['schemaname']}\".\"{$arrTmp['tablename']}\".\"{$arrTmp['fieldname']}\" {$curCondition['operator']} '{$curCondition['txt']}' ";
 					}

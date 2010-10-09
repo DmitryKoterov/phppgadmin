@@ -277,6 +277,15 @@
 			if (is_array($var)) {
 				foreach($var as $k => $v) {
 					$this->stripVar($var[$k]);
+
+					/* magic_quotes_gpc escape keys as well ...*/
+					if (is_string($k)) {
+						$ek = stripslashes($k);
+						if ($ek !== $k) {
+							$var[$ek] = $var[$k];
+							unset($var[$k]);
+						}
+					}
 				}
 			}
 			else
@@ -346,6 +355,7 @@
 				exit;
 			}
 			$this->setServerInfo('platform', $platform, $server_id);
+			$this->setServerInfo('pgVersion', $_connection->conn->pgVersion, $server_id);
 
 			// Create a database wrapper class for easy manipulation of the
 			// connection.
@@ -375,7 +385,7 @@
 				} else if (isset($conf['use_xhtml_strict']) && $conf['use_xhtml_strict']) {
 					echo "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-Strict.dtd\">\n";
 				} else {
-					echo "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-Transitional.dtd\">\n";
+					echo "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n";
 				}
 				echo "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"{$lang['applocale']}\" lang=\"{$lang['applocale']}\"";
 				if (strcasecmp($lang['applangdir'], 'ltr') != 0) echo " dir=\"", htmlspecialchars($lang['applangdir']), "\"";
@@ -402,10 +412,14 @@
 		 */
 		function printFooter($doBody = true) {
 			global $_reload_browser, $_reload_drop_database;
+			global $lang, $_no_bottom_link;
 
 			if ($doBody) {
 				if (isset($_reload_browser)) $this->printReload(false);
 				elseif (isset($_reload_drop_database)) $this->printReload(true);
+				if (!isset($_no_bottom_link)) 
+					echo "<a href=\"#\" class=\"bottom_link\">".$lang['strgotoppage']."</a>";
+
 				echo "</body>\n";
 			}
 			echo "</html>\n";
@@ -457,8 +471,8 @@
 			echo "<table class=\"tabs\"><tr>\n";
 			#echo "<div class=\"tabs\">\n";
 
-			# FIXME: don't count hidden tags
-			$width = round(100 / count($tabs)).'%';
+			# FIXME: don't count hidden tabs
+			$width = (int)(100 / count($tabs)).'%';
 
 			foreach ($tabs as $tab_id => $tab) {
 				$active = ($tab_id == $activetab) ? ' active' : '';
@@ -838,6 +852,12 @@
 							'icon'  => 'Rules',
 							'branch'=> true,
 						),
+						'admin' => array (
+							'title' => $lang['stradmin'],
+							'url'   => 'tables.php',
+							'urlvars' => array('subject' => 'table', 'table' => field('table'), 'action' => 'admin'),
+							'icon'  => 'Admin',
+						),
 						'info' => array (
 							'title' => $lang['strinfo'],
 							'url'   => 'info.php',
@@ -1124,9 +1144,9 @@
 					'';
 
 				echo "<td style=\"text-align: right\">";
-				echo "<ul class=\"toplink\">\n\t<li><a class=\"toplink\" href=\"{$sql_url}sql\" target=\"sqledit\" onclick=\"window.open('{$sql_url}sql','{$sql_window_id}','toolbar=no,width=600,height=400,resizable=yes,scrollbars=no').focus(); return false;\">{$lang['strsql']}</a></li>\n";
+				echo "<ul class=\"toplink\">\n\t<li><a class=\"toplink\" href=\"{$sql_url}sql\" target=\"sqledit\" onclick=\"window.open('{$sql_url}sql','{$sql_window_id}','toolbar=no,width=700,height=500,resizable=yes,scrollbars=yes').focus(); return false;\">{$lang['strsql']}</a></li>\n";
 				echo "\t<li><a class=\"toplink\" href=\"{$history_url}\" onclick=\"window.open('{$history_url}','{$history_window_id}','toolbar=no,width=800,height=600,resizable=yes,scrollbars=yes').focus(); return false;\">{$lang['strhistory']}</a></li>\n";
-				echo "\t<li><a class=\"toplink\" href=\"{$sql_url}find\" target=\"sqledit\" onclick=\"window.open('{$sql_url}find','{$sql_window_id}','toolbar=no,width=600,height=400,resizable=yes,scrollbars=no').focus(); return false;\">{$lang['strfind']}</a></li>\n";
+				echo "\t<li><a class=\"toplink\" href=\"{$sql_url}find\" target=\"sqledit\" onclick=\"window.open('{$sql_url}find','{$sql_window_id}','toolbar=no,width=700,height=500,resizable=yes,scrollbars=yes').focus(); return false;\">{$lang['strfind']}</a></li>\n";
  				echo "\t<li><a class=\"toplink\" href=\"servers.php?action=logout&amp;logoutServer=".htmlspecialchars($server_info['host']).":".htmlspecialchars($server_info['port']).":".htmlspecialchars($server_info['sslmode'])."\"{$logout_shared}>{$lang['strlogout']}</a></li>\n";
  				echo "</ul>\n";
 				echo "</td>";
@@ -1294,22 +1314,22 @@
 			if ($subject == 'slony_cluster') $done = true;
 
 			if (isset($_REQUEST['table']) && !$done) {
-				$vars .= "subject=table&table=".urlencode($_REQUEST['table']);
+				$vars .= "table=".urlencode($_REQUEST['table']);
 				$trail['table'] = array(
 					'title' => $lang['strtable'],
 					'text'  => $_REQUEST['table'],
-					'url'   => "redirect.php?{$vars}",
+					'url'   => "redirect.php?subject=table&{$vars}",
 					'browse_html' => '<img src="images/themes/default/Open.png">',
-					'browse_url' => "display.php?{$vars}",
+					'browse_url' => "display.php?subject=table&{$vars}",
 					'help'  => 'pg.table',
 					'icon'  => 'Table'
 				);
 			} elseif (isset($_REQUEST['view']) && !$done) {
-				$vars .= "subject=view&view=".urlencode($_REQUEST['view']);
+				$vars .= "view=".urlencode($_REQUEST['view']);
 				$trail['view'] = array(
 					'title' => $lang['strview'],
 					'text'  => $_REQUEST['view'],
-					'url'   => "redirect.php?{$vars}",
+					'url'   => "redirect.php?subject=view&{$vars}",
 					'help'  => 'pg.view',
 					'icon'  => 'View'
 				);
@@ -1371,7 +1391,7 @@
 						);
 						break;
 					case 'column':
-						$vars .= "&column={$_REQUEST['column']}&subject=column";
+						$vars .= "&column=". urlencode($_REQUEST['column']) ."&subject=column";
 						$trail['column'] = array (
 							'title' => $lang['strcolumn'],
 							'text'  => $_REQUEST['column'],
@@ -1703,11 +1723,11 @@
 					if (!is_null($pre_fn)) $alt_actions = $pre_fn($tabledata, $actions);
 					if (!isset($alt_actions)) $alt_actions =& $actions;
 
-					echo "<tr>\n";
+					echo "<tr class=\"data{$id}\">\n";
 					if ($has_ma) {
 						foreach ($ma['keycols'] as $k => $v)
 							$a[$k] = $tabledata->fields[$v];
-						echo "<td class=\"data{$id}\">";
+						echo "<td>";
 						echo "<input type=\"checkbox\" name=\"ma[]\" value=\"". htmlentities(serialize($a)) ."\" />";
 						echo "</td>\n";
 					}
@@ -1721,7 +1741,7 @@
 							case 'actions':
 								foreach ($alt_actions as $action) {
 									if (isset($action['disable']) && $action['disable'] === true) {
-										echo "<td class=\"data{$id}\"></td>\n";
+										echo "<td></td>\n";
 									} else {
 										echo "<td class=\"opbutton{$id}\">";
 										echo "<a href=\"{$action['url']}";
@@ -1734,7 +1754,7 @@
 								}
 								break;
 							default:
-								echo "<td class=\"data{$id}\">";
+								echo "<td>";
 								$val = value($column['field'], $tabledata->fields);
 								if (!is_null($val)) {
 									if (isset($column['url'])) {
@@ -1764,16 +1784,17 @@
 					// if default is not set or doesn't exist, set it to null
 					if (!isset($ma['default']) || !isset($actions[$ma['default']]))
 						$ma['default'] = null;
+					echo "<br />\n";
 					echo "<table>\n";
 					echo "<tr>\n";
 					echo "<th class=\"data\" style=\"text-align: left\" colspan=\"3\">{$lang['stractionsonmultiplelines']}</th>\n";
 					echo "</tr>\n";
-					echo "<tr>\n";
-					echo "<td class=\"data1\">";
+					echo "<tr class=\"data1\">\n";
+					echo "<td>";
 					echo "<a href=\"#\" onclick=\"javascript:checkAll('{$formName}', true);\">{$lang['strselectall']}</a> / ";
 					echo "<a href=\"#\" onclick=\"javascript:checkAll('{$formName}', false);\">{$lang['strunselectall']}</a></td>\n";
-					echo "<td class=\"data1\">&nbsp;--->&nbsp;</td>\n";
-					echo "<td class=\"data1\">\n";
+					echo "<td>&nbsp;--->&nbsp;</td>\n";
+					echo "<td>\n";
 					echo "\t<select name=\"action\">\n";
 					if ($ma['default'] == null)
 						echo "\t\t<option value=\"\">--</option>\n";
@@ -1820,7 +1841,7 @@
 				header("Content-Type: text/xml");
 				header("Cache-Control: no-cache");
 
-				echo "<?xml version=\"1.0\"?>\n";
+				echo "<?xml version=\"1.0\" encoding=\"", htmlspecialchars($lang['appcharset']), "\"?>\n";
 
 				echo "<tree>\n";
 			}
@@ -1851,7 +1872,7 @@
 				}
 			} else {
 				$msg = isset($attrs['nodata']) ? $attrs['nodata'] : $lang['strnoobjects'];
-				echo "<tree text=\"{$msg}\" onaction=\"this.parentNode.reload()\" icon=\"", $this->icon('ObjectNotFound'), "\" />\n";
+				echo "<tree text=\"{$msg}\" onaction=\"tree.getSelected().getParent().reload()\" icon=\"", $this->icon('ObjectNotFound'), "\" />\n";
 			}
 
 			if (!isset($attrs['nofoot']) || $attrs['nofoot'] === false) {
@@ -1953,24 +1974,24 @@
 		 */
 		function getServers($recordset = false, $group = false) {
 			global $conf;
-			
-			$srvs = isset($_SESSION['webdbLogin']) && is_array($_SESSION['webdbLogin']) ? $_SESSION['webdbLogin'] : array();
-			
-			if ($group !== false) {
-				if ($group !== 'all')
-					$group = array_fill_keys(explode(',', $conf['srv_groups'][$group]['servers']), 1);
-			} 
+
+			$logins = isset($_SESSION['webdbLogin']) && is_array($_SESSION['webdbLogin']) ? $_SESSION['webdbLogin'] : array();
+			$srvs = array();
+
+			if (($group !== false) and ($group !== 'all'))
+				$group = array_fill_keys(explode(',', $conf['srv_groups'][$group]['servers']), 1);
 			
 			foreach($conf['servers'] as $idx => $info) {
+				$server_id = $info['host'].':'.$info['port'].':'.$info['sslmode'];
 				if (($group === false) 
 					or (isset($group[$idx]))
 					or ($group === 'all')
 				) {
 					$server_id = $info['host'].':'.$info['port'].':'.$info['sslmode'];
+					
+					if (isset($logins[$server_id])) $srvs[$server_id] = $logins[$server_id];
+					else $srvs[$server_id] = $info;
 
-					if (!isset($srvs[$server_id])) {
-						$srvs[$server_id] = $info;
-					}
 					$srvs[$server_id]['id'] = $server_id;
 				}
 			}
@@ -2139,6 +2160,109 @@
 			}
 			
 			echo "</td></tr></table>\n";
+		}
+
+		/**
+		 * returns an array representing FKs definition for a table, sorted by fields
+		 * or by constraint.
+		 * @param $table The table to retrieve FK contraints from
+		 * @returns the array of FK definition:
+		 *   array(
+		 *     'byconstr' => array(
+		 *       constrain id => array(
+		 *         confrelid => foreign relation oid
+		 *         f_schema => foreign schema name
+		 *         f_table => foreign table name
+		 *         pattnums => array of parent's fields nums
+		 *         pattnames => array of parent's fields names
+		 *         fattnames => array of foreign attributes names
+		 *       )
+		 *     ),
+		 *     'byfield' => array(
+		 *       attribute num => array (constraint id, ...)
+		 *     ),
+		 *     'code' => HTML/js code to include in the page for auto-completion
+		 *   )
+		 **/
+		function getAutocompleteFKProperties($table) {
+			global $data;
+
+			$fksprops = array(
+				'byconstr' => array(),
+				'byfield' => array(),
+				'code' => ''
+			);
+
+			$constrs = $data->getConstraintsWithFields($table);
+
+			if (!$constrs->EOF) {
+				$conrelid = $constrs->fields['conrelid'];
+				while(!$constrs->EOF) {
+					if ($constrs->fields['contype'] == 'f') {
+						if (!isset($fksprops['byconstr'][$constrs->fields['conid']])) {
+							$fksprops['byconstr'][$constrs->fields['conid']] = array (
+								'confrelid' => $constrs->fields['confrelid'],
+								'f_table' => $constrs->fields['f_table'],
+								'f_schema' => $constrs->fields['f_schema'],
+								'pattnums' => array(),
+								'pattnames' => array(),
+								'fattnames' => array()
+							);
+						}
+
+						$fksprops['byconstr'][$constrs->fields['conid']]['pattnums'][] = $constrs->fields['p_attnum'];
+						$fksprops['byconstr'][$constrs->fields['conid']]['pattnames'][] = $constrs->fields['p_field'];
+						$fksprops['byconstr'][$constrs->fields['conid']]['fattnames'][] = $constrs->fields['f_field'];
+
+						if (!isset($fksprops['byfield'][$constrs->fields['p_attnum']]))
+							$fksprops['byfield'][$constrs->fields['p_attnum']] = array();
+						$fksprops['byfield'][$constrs->fields['p_attnum']][] = $constrs->fields['conid'];
+					}
+					$constrs->moveNext();
+				}
+
+				$fksprops['code'] = "<script type=\"text/javascript\">\n";
+				$fksprops['code'] .= "var constrs = {};\n";
+				foreach ($fksprops['byconstr'] as $conid => $props) {
+					$fksprops['code'] .= "constrs.constr_{$conid} = {\n";
+					$fksprops['code'] .= 'pattnums: ['. implode(',',$props['pattnums']) ."],\n";
+					$fksprops['code'] .= "f_table:'". addslashes(htmlentities($props['f_table'], ENT_QUOTES)) ."',\n";
+					$fksprops['code'] .= "f_schema:'". addslashes(htmlentities($props['f_schema'], ENT_QUOTES)) ."',\n";
+					$_ = '';
+					foreach ($props['pattnames'] as $n) {
+						$_ .= ",'". htmlentities($n, ENT_QUOTES) ."'";
+					}
+					$fksprops['code'] .= 'pattnames: ['. substr($_, 1) ."],\n";
+
+					$_ = '';
+					foreach ($props['fattnames'] as $n) {
+						$_ .= ",'". htmlentities($n, ENT_QUOTES) ."'";
+					}
+
+					$fksprops['code'] .= 'fattnames: ['. substr($_, 1) ."]\n";
+					$fksprops['code'] .= "};\n";
+				}
+
+				$fksprops['code'] .= "var attrs = {};\n";
+				foreach ($fksprops['byfield'] as $attnum => $cstrs ) {
+					$fksprops['code'] .= "attrs.attr_{$attnum} = [". implode(',', $fksprops['byfield'][$attnum]) ."];\n";
+				}
+
+				$fksprops['code'] .= "var table='". addslashes(htmlentities($table, ENT_QUOTES)) ."';";
+				$fksprops['code'] .= "var server='". htmlentities($_REQUEST['server']) ."';";
+				$fksprops['code'] .= "var database='". addslashes(htmlentities($_REQUEST['database'], ENT_QUOTES)) ."';";
+				$fksprops['code'] .= "</script>\n";
+
+				$fksprops['code'] .= '<div id="fkbg"></div>';
+				$fksprops['code'] .= '<div id="fklist"></div>';
+				$fksprops['code'] .= '<script src="libraries/js/jquery.js" type="text/javascript"></script>';
+				$fksprops['code'] .= '<script src="js/ac_insert_row.js" type="text/javascript"></script>';
+			}
+
+			else /* we have no foreign keys on this table */
+				return false;
+
+			return $fksprops;
 		}
 	}
 ?>

@@ -392,19 +392,19 @@
 						$_REQUEST['ops'][$attrs->fields['attname']] = null;
 					// Continue drawing row
 					$id = (($i % 2) == 0 ? '1' : '2');
-					echo "<tr>\n";
-					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">";
+					echo "<tr class=\"data{$id}\">\n";
+					echo "<td style=\"white-space:nowrap;\">";
 					echo "<input type=\"checkbox\" name=\"show[", htmlspecialchars($attrs->fields['attname']), "]\"",
 						isset($_REQUEST['show'][$attrs->fields['attname']]) || !$_POST? ' checked="checked"' : '', " /></td>";
-					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">", $misc->printVal($attrs->fields['attname']), "</td>";
-					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">", $misc->printVal($data->formatType($attrs->fields['type'], $attrs->fields['atttypmod'])), "</td>";
-					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">";
+					echo "<td style=\"white-space:nowrap;\">", $misc->printVal($attrs->fields['attname']), "</td>";
+					echo "<td style=\"white-space:nowrap;\">", $misc->printVal($data->formatType($attrs->fields['type'], $attrs->fields['atttypmod'])), "</td>";
+					echo "<td style=\"white-space:nowrap;\">";
 					echo "<select name=\"ops[{$attrs->fields['attname']}]\">\n";
 					foreach (array_keys($data->selectOps) as $v) {
                         if (isset($_REQUEST['ops'][$attrs->fields['attname']])) {
                             $vReq = $_REQUEST['ops'][$attrs->fields['attname']];
                         } else {
-                            if (preg_match('/\b(character|text)\b/i', $attrs->fields['type'])) {
+                            if (preg_match('/\b(character|text|bytea)\b/i', $attrs->fields['type'])) {
                                 $vReq = 'LIKE';
                             } else {
                                 $vReq = null;
@@ -414,8 +414,8 @@
 						">", htmlspecialchars($v), "</option>\n";
 					}
 					echo "</select>\n</td>\n";
-					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">", $data->printField("values[{$attrs->fields['attname']}]",
-						$_REQUEST['values'][$attrs->fields['attname']], $attrs->fields['type']), "</td>";
+					echo "<td style=\"white-space:nowrap;\">", $data->printField("values[{$attrs->fields['attname']}]",
+						$_REQUEST['values'][$attrs->fields['attname']], $attrs->fields['type'] == 'bytea'? 'character' : $attrs->fields['type']), "</td>";
 					echo "</tr>\n";
 					$i++;
 					$attrs->moveNext();
@@ -462,7 +462,6 @@
 				exit;
 			}
 		}
-
 	}
 
 	/**
@@ -472,84 +471,19 @@
 		global $data, $misc, $conf;
 		global $lang;
 
-		$auto_complete = ($conf['autocomplete'] != 'disable');
-
 		if ($confirm) {
 			$misc->printTrail('table');
 			$misc->printTitle($lang['strinsertrow'], 'pg.sql.insert');
 			$misc->printMsg($msg);
 
 			$attrs = $data->getTableAttributes($_REQUEST['table']);
-			$fksprops = array(
-				'byconstr' => array(),
-				'byfield' => array(),
-			);
-			if($auto_complete) {
-				$constrs = $data->getConstraintsWithFields($_REQUEST['table']);
 
-				if (!$constrs->EOF) {
-					$conrelid = $constrs->fields['conrelid'];
-					while(!$constrs->EOF) {
-						if ($constrs->fields['contype'] == 'f') {
-							if (!isset($fksprops['byconstr'][$constrs->fields['conid']])) {
-								$fksprops['byconstr'][$constrs->fields['conid']] = array (
-									'confrelid' => $constrs->fields['confrelid'],
-									'f_table' => $constrs->fields['f_table'],
-									'f_schema' => $constrs->fields['f_schema'],
-									'pattnums' => array(),
-									'pattnames' => array(),
-									'fattnames' => array()
-								);
-							}
-
-							$fksprops['byconstr'][$constrs->fields['conid']]['pattnums'][] = $constrs->fields['p_attnum'];
-							$fksprops['byconstr'][$constrs->fields['conid']]['pattnames'][] = $constrs->fields['p_field'];
-							$fksprops['byconstr'][$constrs->fields['conid']]['fattnames'][] = $constrs->fields['f_field'];
-
-							if (!isset($fksprops['byfield'][$constrs->fields['p_attnum']]))
-								$fksprops['byfield'][$constrs->fields['p_attnum']] = array();
-							$fksprops['byfield'][$constrs->fields['p_attnum']] = $constrs->fields['conid'];
-						}
-						$constrs->moveNext();
-					}
-					
-					echo "<script type=\"text/javascript\">\n";
-					echo "var constrs = {};\n";
-					foreach ($fksprops['byconstr'] as $conid => $props) {
-						echo "constrs.constr_{$conid} = {\n";
-						echo 'pattnums: [', implode(',',$props['pattnums']), "],\n";
-						echo "f_table:\"", htmlentities($props['f_table']), "\",\n";
-						echo "f_schema:\"", htmlentities($props['f_schema']), "\",\n";
-						$_='';
-						foreach ($props['pattnames'] as $n) {
-							$_.= ",'". htmlentities($n, ENT_QUOTES) ."'";
-						}
-						echo 'pattnames: [', substr($_, 1), "],\n";
-
-						$_='';
-						foreach ($props['fattnames'] as $n) {
-							$_.= ",'". htmlentities($n, ENT_QUOTES) ."'";
-						}
-
-						echo 'fattnames: [', substr($_, 1), "]\n";
-						echo "};\n";
-					}
-
-					echo "var attrs = {};\n";
-					foreach ($fksprops['byfield'] as $attnum => $cstrs ) {
-						echo "attrs.attr_{$attnum} = {$fksprops['byfield'][$attnum]};\n";
-					}
-
-					echo "var table='", htmlentities($_REQUEST['table']), "';";
-					echo "var server='", htmlentities($_REQUEST['server']), "';";
-					echo "var database='", htmlentities($_REQUEST['database']), "';";
-					echo "</script>\n";
-
-					echo '<div id="fkbg"></div>';
-					echo '<div id="fklist"></div>';
-				}
-				else $auto_complete = false;
+			if (($conf['autocomplete'] != 'disable')) {
+				$fksprops = $misc->getAutocompleteFKProperties($_REQUEST['table']);
+				if ($fksprops !== false)
+					echo $fksprops['code'];
 			}
+			else $fksprops = false;
 
 			echo "<form action=\"tables.php\" method=\"post\" enctype=\"multipart/form-data\" id=\"ac_form\">\n";
 			if ($attrs->recordCount() > 0) {
@@ -574,18 +508,18 @@
 						$_REQUEST['format'][$attrs->fields['attnum']] = ($attrs->fields['adsrc'] === null) ? 'VALUE' : 'EXPRESSION';
 					// Continue drawing row
 					$id = (($i % 2) == 0 ? '1' : '2');
-					echo "<tr>\n";
-					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">", $misc->printVal($attrs->fields['attname']), "</td>";
-					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">\n";
+					echo "<tr class=\"data{$id}\">\n";
+					echo "<td style=\"white-space:nowrap;\">", $misc->printVal($attrs->fields['attname']), "</td>";
+					echo "<td style=\"white-space:nowrap;\">\n";
 					echo $misc->printVal($data->formatType($attrs->fields['type'], $attrs->fields['atttypmod']));
 					echo "<input type=\"hidden\" name=\"types[{$attrs->fields['attnum']}]\" value=\"",
 						htmlspecialchars($attrs->fields['type']), "\" /></td>";
-					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">\n";
+					echo "<td style=\"white-space:nowrap;\">\n";
 					echo "<select name=\"format[{$attrs->fields['attnum']}]\">\n";
 					echo "<option value=\"VALUE\"", ($_REQUEST['format'][$attrs->fields['attnum']] == 'VALUE') ? ' selected="selected"' : '', ">{$lang['strvalue']}</option>\n";
 					echo "<option value=\"EXPRESSION\"", ($_REQUEST['format'][$attrs->fields['attnum']] == 'EXPRESSION') ? ' selected="selected"' : '', ">{$lang['strexpression']}</option>\n";
 					echo "</select>\n</td>\n";
-					echo "<td class=\"data{$id}\" style=\"white-space:nowrap;\">";
+					echo "<td style=\"white-space:nowrap;\">";
 					// Output null box if the column allows nulls (doesn't look at CHECKs or ASSERTIONS)
 					$nullCheckboxId = null;
 					if (!$attrs->fields['attnotnull']) {
@@ -596,14 +530,17 @@
 					else {
 						echo "&nbsp;</td>";
 					}
-					echo "<td class=\"data{$id}\" id=\"row_att_{$attrs->fields['attnum']}\" style=\"white-space:nowrap;\">";
-					if ($auto_complete && isset($fksprops['byfield'][$attrs->fields['attnum']])) {
-						echo $data->printField("values[{$attrs->fields['attnum']}]", $_REQUEST['values'][$attrs->fields['attnum']],
-							'fktype'/*force FK*/,($nullCheckboxId? array('onChange' => 'document.getElementById("' . $nullCheckboxId . '").checked = false;') : array()), "id=\"attr_{$attrs->fields['attnum']}\" autocomplete=\"off\"");
+					echo "<td id=\"row_att_{$attrs->fields['attnum']}\" style=\"white-space:nowrap;\">";
+					if (($fksprops !== false) && isset($fksprops['byfield'][$attrs->fields['attnum']])) {
+						echo $data->printField("values[{$attrs->fields['attnum']}]", $_REQUEST['values'][$attrs->fields['attnum']], 'fktype'/*force FK*/,
+							array(
+								'id' => "attr_{$attrs->fields['attnum']}",
+								'autocomplete' => 'off'
+							)
+						);
 					}
 					else {
-						echo $data->printField("values[{$attrs->fields['attnum']}]", $_REQUEST['values'][$attrs->fields['attnum']],
-							$attrs->fields['type'],($nullCheckboxId? array('onChange' => 'document.getElementById("' . $nullCheckboxId . '").checked = false;') : array()));
+						echo $data->printField("values[{$attrs->fields['attnum']}]", $_REQUEST['values'][$attrs->fields['attnum']], $attrs->fields['type']);
 					}
 					echo "</td>\n";
 					echo "</tr>\n";
@@ -611,10 +548,6 @@
 					$attrs->moveNext();
 				}
 				echo "</table>\n";
-				if($auto_complete) {
-					echo "<script src=\"libraries/js/jquery.js\" type=\"text/javascript\"></script>";
-					echo "<script src=\"js/ac_insert_row.js\" type=\"text/javascript\"></script>";
-				}
 
 				if (!isset($_SESSION['counter'])) { $_SESSION['counter'] = 0; }
 
@@ -626,7 +559,7 @@
 				echo "<input type=\"submit\" name=\"insertandrepeat\" value=\"{$lang['strinsertandrepeat']}\" />\n";
 				echo "<input type=\"submit\" name=\"cancel\" value=\"{$lang['strcancel']}\" />\n";
 				
-				if($auto_complete) {
+				if($fksprops !== false) {
 					if ($conf['autocomplete'] != 'default off')
 						echo "<input type=\"checkbox\" id=\"no_ac\" value=\"1\" checked=\"checked\" /><label for=\"no_ac\">{$lang['strac']}</label>\n";
 					else
@@ -807,144 +740,6 @@
 		} // END DROP
 	}// END Function
 
-
-	/**
-	 * Show confirmation of vacuum and perform actual vacuum
-	 */
-	function doVacuum($confirm) {
-		global $data, $misc;
-		global $lang, $_reload_browser;
-
-		if (empty($_REQUEST['table']) && empty($_REQUEST['ma'])) {
-			doDefault($lang['strspecifytabletovacuum']);
-			exit();
-		}
-		if ($confirm) {
-			if (isset($_REQUEST['ma'])) {
-				$misc->printTrail('schema');
-				$misc->printTitle($lang['strvacuum'], 'pg.vacuum');
-
-				echo "<form action=\"tables.php\" method=\"post\">\n";
-				foreach($_REQUEST['ma'] as $v) {
-					$a = unserialize(htmlspecialchars_decode($v, ENT_QUOTES));
-					echo "<p>", sprintf($lang['strconfvacuumtable'], $misc->printVal($a['table'])), "</p>\n";
-					echo "<input type=\"hidden\" name=\"table[]\" value=\"", htmlspecialchars($a['table']), "\" />\n";
-				}
-			} // END if multi vacuum
-			else {
-				$misc->printTrail('table');
-				$misc->printTitle($lang['strvacuum'], 'pg.vacuum');
-
-				echo "<p>", sprintf($lang['strconfvacuumtable'], $misc->printVal($_REQUEST['table'])), "</p>\n";
-
-				echo "<form action=\"tables.php\" method=\"post\">\n";
-				echo "<input type=\"hidden\" name=\"table\" value=\"", htmlspecialchars($_REQUEST['table']), "\" />\n";
-			}
-			echo "<input type=\"hidden\" name=\"action\" value=\"vacuum\" />\n";
-			echo $misc->form;
-			echo "<p><input type=\"checkbox\" id=\"vacuum_full\" name=\"vacuum_full\" /> <label for=\"vacuum_full\">{$lang['strfull']}</label></p>\n";
-			echo "<p><input type=\"checkbox\" id=\"vacuum_analyze\" name=\"vacuum_analyze\" /> <label for=\"vacuum_analyze\">{$lang['stranalyze']}</label></p>\n";
-			echo "<input type=\"submit\" name=\"vacuum\" value=\"{$lang['strvacuum']}\" />\n";
-			echo "<input type=\"submit\" name=\"cancel\" value=\"{$lang['strcancel']}\" />\n";
-			echo "</form>\n";
-		} // END single vacuum
-		else {
-			//If multi drop
-			if (is_array($_REQUEST['table'])) {
-				$msg='';
-				foreach($_REQUEST['table'] as $t) {
-					$status = $data->vacuumDB($t, isset($_REQUEST['vacuum_analyze']), isset($_REQUEST['vacuum_full']), '');
-					if ($status == 0)
-						$msg.= sprintf('%s: %s<br />', htmlentities($t), $lang['strvacuumgood']);
-					else {
-						doDefault(sprintf('%s%s: %s<br />', $msg, htmlentities($t), $lang['strvacuumbad']));
-						return;
-					}
-				}
-				 // Everything went fine, back to the Default page....
-				 $_reload_browser = true;
-				 doDefault($msg);
-			}
-			else {
-				$status = $data->vacuumDB($_POST['table'], isset($_REQUEST['vacuum_analyze']), isset($_REQUEST['vacuum_full']), '');
-				if ($status == 0) {
-					$_reload_browser = true;
-					doDefault($lang['strvacuumgood']);
-				}
-				else
-					doDefault($lang['strvacuumbad']);
-			}
-		}
-	}
-
-	/**
-	 * Show confirmation of analyze and perform analyze
-	 */
-	function doAnalyze($confirm) {
-		global $data, $misc;
-		global $lang, $_reload_browser;
-
-		if (empty($_REQUEST['table']) && empty($_REQUEST['ma'])) {
-			doDefault($lang['strspecifytabletoanalyze']);
-			exit();
-		}
-		if ($confirm) {
-			if (isset($_REQUEST['ma'])) {
-				$misc->printTrail('schema');
-				$misc->printTitle($lang['stranalyze'], 'pg.analyze'); //TODO
-
-				echo "<form action=\"tables.php\" method=\"post\">\n";
-				foreach($_REQUEST['ma'] as $v) {
-					$a = unserialize(htmlspecialchars_decode($v, ENT_QUOTES));
-					echo "<p>", sprintf($lang['strconfanalyzetable'], $misc->printVal($a['table'])), "</p>\n";
-					echo "<input type=\"hidden\" name=\"table[]\" value=\"", htmlspecialchars($a['table']), "\" />\n";
-				}
-			} // END if multi analyze
-			else {
-				$misc->printTrail('table');
-				$misc->printTitle($lang['stranalyze'], 'pg.analyze'); //TODO
-
-				echo "<p>", sprintf($lang['strconfanalyzetable'], $misc->printVal($_REQUEST['table'])), "</p>\n";
-
-				echo "<form action=\"tables.php\" method=\"post\">\n";
-				echo "<input type=\"hidden\" name=\"table\" value=\"", htmlspecialchars($_REQUEST['table']), "\" />\n";
-			}
-			echo "<input type=\"hidden\" name=\"action\" value=\"analyze\" />\n";
-			echo $misc->form;
-
-			echo "<input type=\"submit\" name=\"analyze\" value=\"{$lang['stranalyze']}\" />\n"; //TODO
-			echo "<input type=\"submit\" name=\"cancel\" value=\"{$lang['strcancel']}\" />\n";
-			echo "</form>\n";
-		} // END single analyze
-		else {
-			//If multi drop
-			if (is_array($_REQUEST['table'])) {
-				$msg='';
-				foreach($_REQUEST['table'] as $t) {
-					$status = $data->analyzeDB($t);
-					if ($status == 0)
-						$msg.= sprintf('%s: %s<br />', htmlentities($t), $lang['stranalyzegood']);
-					else {
-						doDefault(sprintf('%s%s: %s<br />', $msg, htmlentities($t), $lang['stranalyzebad']));
-						return;
-					}
-				}
-				 // Everything went fine, back to the Default page....
-				 $_reload_browser = true;
-				 doDefault($msg);
-			}
-			else {
-				$status = $data->analyzeDB($_POST['table']);
-				if ($status == 0) {
-					$_reload_browser = true;
-					doDefault($lang['stranalyzegood']);
-				}
-				else
-					doDefault($lang['stranalyzebad']);
-			}
-		}
-	}
-
 	/**
 	 * Show default list of tables in the database
 	 */
@@ -1037,6 +832,13 @@
 				'vars'  => array('table' => 'relname'),
 				'multiaction' => 'confirm_analyze',
 			),
+			'reindex' => array(
+				'title' => $lang['strreindex'],
+				'url'   => "tables.php?action=confirm_reindex&amp;{$misc->href}&amp;",
+				'vars'  => array('table' => 'relname'),
+				'multiaction' => 'confirm_reindex',
+			),
+			//'cluster' TODO ?
 		);
 
 		if (!$data->hasTablespaces()) unset($columns['tablespace']);
@@ -1048,6 +850,8 @@
 			echo "\t<li><a href=\"tables.php?action=createlike&amp;{$misc->href}\">{$lang['strcreatetablelike']}</a></li>\n";
 		echo "</ul>\n";
 	}
+	
+	require('./admin.php');
 
 	/**
 	 * Generate XML for the browser tree.
@@ -1162,22 +966,8 @@
 		case 'confirm_drop':
 			doDrop(true);
 			break;
-		case 'vacuum':
-			if (isset($_POST['vacuum'])) doVacuum(false);
-			else doDefault();
-			break;
-		case 'confirm_vacuum':
-			doVacuum(true);
-			break;
-		case 'analyze':
-			if (isset($_POST['analyze'])) doAnalyze(false);
-			else doDefault();
-			break;
-		case 'confirm_analyze':
-			doAnalyze(true);
-			break;
 		default:
-			doDefault();
+			if (adminActions($action, 'table') === false) doDefault();
 			break;
 	}
 

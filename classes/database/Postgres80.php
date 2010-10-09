@@ -79,8 +79,10 @@ class Postgres80 extends Postgres81 {
 		}
 		else $clause = '';
 
-		if ($currentdatabase != NULL)
+		if ($currentdatabase != NULL) {
+			$this->clean($currentdatabase);
 			$orderby = "ORDER BY pdb.datname = '{$currentdatabase}' DESC, pdb.datname";
+		}
 		else
 			$orderby = "ORDER BY pdb.datname";
 
@@ -163,6 +165,69 @@ class Postgres80 extends Postgres81 {
 		return 0;
 	}
 
+
+	// Constraint functions
+
+	/**
+	 * Returns a list of all constraints on a table,
+	 * including constraint name, definition, related col and referenced namespace,
+	 * table and col if needed
+	 * @param $table the table where we are looking for fk
+	 * @return a recordset
+	 */
+	function getConstraintsWithFields($table) {
+
+		$c_schema = $this->_schema;
+		$this->clean($c_schema);
+		$this->clean($table);
+
+		// get the max number of col used in a constraint for the table
+		$sql = "SELECT DISTINCT
+			max(SUBSTRING(array_dims(c.conkey) FROM '^\\\[.*:(.*)\\\]$')) as nb
+		FROM pg_catalog.pg_constraint AS c
+			JOIN pg_catalog.pg_class AS r ON (c.conrelid=r.oid)
+		    JOIN pg_catalog.pg_namespace AS ns ON (r.relnamespace=ns.oid)
+		WHERE
+			r.relname = '{$table}' AND ns.nspname='{$c_schema}'";
+
+		$rs = $this->selectSet($sql);
+
+		if ($rs->EOF) $max_col = 0;
+		else $max_col = $rs->fields['nb'];
+
+		$sql = '
+			SELECT
+				c.oid AS conid, c.contype, c.conname, pg_catalog.pg_get_constraintdef(c.oid, true) AS consrc,
+				ns1.nspname as p_schema, r1.relname as p_table, ns2.nspname as f_schema,
+				r2.relname as f_table, f1.attname as p_field, f1.attnum AS p_attnum, f2.attname as f_field,
+				f2.attnum AS f_attnum, pg_catalog.obj_description(c.oid, \'pg_constraint\') AS constcomment,
+				c.conrelid, c.confrelid
+			FROM
+				pg_catalog.pg_constraint AS c
+				JOIN pg_catalog.pg_class AS r1 ON (c.conrelid=r1.oid)
+				JOIN pg_catalog.pg_attribute AS f1 ON (f1.attrelid=r1.oid AND (f1.attnum=c.conkey[1]';
+		for ($i = 2; $i <= $rs->fields['nb']; $i++) {
+			$sql.= " OR f1.attnum=c.conkey[$i]";
+		}
+		$sql.= '))
+				JOIN pg_catalog.pg_namespace AS ns1 ON r1.relnamespace=ns1.oid
+				LEFT JOIN (
+					pg_catalog.pg_class AS r2 JOIN pg_catalog.pg_namespace AS ns2 ON (r2.relnamespace=ns2.oid)
+				) ON (c.confrelid=r2.oid)
+				LEFT JOIN pg_catalog.pg_attribute AS f2 ON
+					(f2.attrelid=r2.oid AND ((c.confkey[1]=f2.attnum AND c.conkey[1]=f1.attnum)';
+		for ($i = 2; $i <= $rs->fields['nb']; $i++)
+			$sql.= "OR (c.confkey[$i]=f2.attnum AND c.conkey[$i]=f1.attnum)";
+
+		$sql .= sprintf("))
+			WHERE
+				r1.relname = '%s' AND ns1.nspname='%s'
+			ORDER BY 1", $table, $c_schema);
+
+		return $this->selectSet($sql);
+	}
+
+
 	// View functions
 
 	/**
@@ -213,18 +278,20 @@ class Postgres80 extends Postgres81 {
 	 * @param $increment The increment
 	 * @param $minvalue The min value
 	 * @param $maxvalue The max value
-	 * @param $startvalue The starting value
+	 * @param $restartvalue The starting value
 	 * @param $cachevalue The cache value
 	 * @param $cycledvalue True if cycled, false otherwise
+	 * @param $startvalue The sequence start value when issueing a restart
 	 * @return 0 success
 	 * @return -3 rename error
 	 * @return -4 comment error
 	 * @return -5 owner error
 	 * @return -6 get sequence props error
+	 * @return -7 schema error
 	 */
 	protected
 	function _alterSequence($seqrs, $name, $comment, $owner, $schema, $increment,
-	$minvalue, $maxvalue, $startvalue, $cachevalue, $cycledvalue) {
+	$minvalue, $maxvalue, $restartvalue, $cachevalue, $cycledvalue, $startvalue) {
 
 		/* $schema not supported in pg80- */
 		$this->fieldArrayClean($seqrs->fields);
@@ -244,11 +311,12 @@ class Postgres80 extends Postgres81 {
 		$this->clean($increment);
 		$this->clean($minvalue);
 		$this->clean($maxvalue);
-		$this->clean($startvalue);
+		$this->clean($restartvalue);
 		$this->clean($cachevalue);
 		$this->clean($cycledvalue);
+		$this->clean($startvalue);
 		$status = $this->alterSequenceProps($seqrs, $increment,	$minvalue,
-			$maxvalue, $startvalue, $cachevalue, $cycledvalue);
+			$maxvalue, $restartvalue, $cachevalue, $cycledvalue, null);
 		if ($status != 0)
 			return -6;
 
@@ -290,8 +358,8 @@ class Postgres80 extends Postgres81 {
 	function getAggregate($name, $basetype) {
 		$c_schema = $this->_schema;
 		$this->clean($c_schema);
-		$this->fieldclean($name);
-		$this->fieldclean($basetype);
+		$this->clean($name);
+		$this->clean($basetype);
 
 		$sql = "
 			SELECT p.proname,
@@ -303,11 +371,11 @@ class Postgres80 extends Postgres81 {
 			FROM pg_catalog.pg_proc p, pg_catalog.pg_namespace n, pg_catalog.pg_user u, pg_catalog.pg_aggregate a
 			WHERE n.oid = p.pronamespace AND p.proowner=u.usesysid AND p.oid=a.aggfnoid
 				AND p.proisagg AND n.nspname='{$c_schema}'
-				AND p.proname='" . $name . "'
+				AND p.proname='{$name}'
 				AND CASE p.proargtypes[0]
 					WHEN 'pg_catalog.\"any\"'::pg_catalog.regtype THEN ''
 					ELSE pg_catalog.format_type(p.proargtypes[0], NULL)
-				END ='" . $basetype . "'";
+				END ='{$basetype}'";
 
 		return $this->selectSet($sql);
 	}
@@ -317,7 +385,6 @@ class Postgres80 extends Postgres81 {
 	function hasAggregateSortOp() { return false; }
 	function hasAlterTableSchema() { return false; }
 	function hasAutovacuum() { return false; }
-	function hasAutovacuumSysTable() { return false; }
 	function hasDisableTriggers() { return false; }
 	function hasFunctionAlterSchema() { return false; }
 	function hasPreparedXacts() { return false; }

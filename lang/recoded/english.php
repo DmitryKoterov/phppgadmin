@@ -66,6 +66,7 @@
 	$lang['strac'] = 'Enable AutoComplete';
 	$lang['strsave'] = 'Save';
 	$lang['strreset'] = 'Reset';
+	$lang['strrestart'] = 'Restart';
 	$lang['strinsert'] = 'Insert';
 	$lang['strselect'] = 'Select';
 	$lang['strdelete'] = 'Delete';
@@ -143,7 +144,17 @@
 	$lang['strlocale'] = 'Locale';
 	$lang['strcollation'] = 'Collation';
 	$lang['strctype'] = 'Character Type';
-
+	$lang['strdefaultvalues'] = 'Default values';
+	$lang['strnewvalues'] = 'New values';
+	$lang['strstart'] = 'Start';
+	$lang['strstop'] = 'Stop';
+	$lang['strgotoppage'] = 'back to top';
+	$lang['strtheme'] = 'Theme';
+	
+	// Admin
+	$lang['stradminondatabase'] = 'The following administrative tasks apply on the whole %s database.';
+	$lang['stradminontable'] = 'The following administrative tasks apply on the table %s.';
+	
 	// User-supplied SQL history
 	$lang['strhistory'] = 'History';
 	$lang['strnohistory'] = 'No history.';
@@ -188,6 +199,7 @@
 	$lang['strnoserversupplied'] = 'No server supplied!';
 	$lang['strbadpgdumppath'] = 'Export error: Failed to execute pg_dump (given path in your conf/config.inc.php : %s). Please, fix this path in your configuration and relog.';
 	$lang['strbadpgdumpallpath'] = 'Export error: Failed to execute pg_dumpall (given path in your conf/config.inc.php : %s). Please, fix this path in your configuration and relog.';
+	$lang['strconnectionfail'] = 'Can not connect to server.';
 
 	// Tables
 	$lang['strtable'] = 'Table';
@@ -250,11 +262,15 @@
 	$lang['strauto'] = 'Auto';
 	$lang['strconfvacuumtable'] = 'Are you sure you want to vacuum &quot;%s&quot;?';
 	$lang['strconfanalyzetable'] = 'Are you sure you want to analyze &quot;%s&quot;?';
+	$lang['strconfreindextable'] = 'Are you sure you want to reindex &quot;%s&quot;?';
+	$lang['strconfclustertable'] = 'Are you sure you want to cluster &quot;%s&quot;?';
 	$lang['strestimatedrowcount'] = 'Estimated row count';
 	$lang['strspecifytabletoanalyze'] = 'You must specify at least one table to analyze.';
 	$lang['strspecifytabletoempty'] = 'You must specify at least one table to empty.';
 	$lang['strspecifytabletodrop'] = 'You must specify at least one table to drop.';
 	$lang['strspecifytabletovacuum'] = 'You must specify at least one table to vacuum.';
+	$lang['strspecifytabletoreindex'] = 'You must specify at least one table to reindex.';
+	$lang['strspecifytabletocluster'] = 'You must specify at least one table to cluster.';
 	$lang['strnofieldsforinsert'] = 'You cannot insert a row into a table with no column.';
 
 	// Columns
@@ -377,6 +393,10 @@
 	$lang['strdatabasealteredbad'] = 'Database alter failed.';
 	$lang['strspecifydatabasetodrop'] = 'You must specify at least one database to drop.';
 	$lang['strtemplatedb'] = 'Template';
+	$lang['strconfanalyzedatabase'] = 'Are you sure you want to analyze all tables in database &quot;%s&quot;?';
+	$lang['strconfvacuumdatabase'] = 'Are you sure you want to vacuum all tables in database &quot;%s&quot;?';
+	$lang['strconfreindexdatabase'] = 'Are you sure you want to reindex all tables in database &quot;%s&quot;?';
+	$lang['strconfclusterdatabase'] = 'Are you sure you want to cluster all tables in database &quot;%s&quot;?';
 
 	// Views
 	$lang['strview'] = 'View';
@@ -416,6 +436,7 @@
 	$lang['strlastvalue'] = 'Last value';
 	$lang['strincrementby'] = 'Increment by';	
 	$lang['strstartvalue'] = 'Start value';
+	$lang['strrestartvalue'] = 'Restart value';
 	$lang['strmaxvalue'] = 'Max value';
 	$lang['strminvalue'] = 'Min value';
 	$lang['strcachevalue'] = 'Cache value';
@@ -428,6 +449,8 @@
 	$lang['strconfdropsequence'] = 'Are you sure you want to drop sequence &quot;%s&quot;?';
 	$lang['strsequencedropped'] = 'Sequence dropped.';
 	$lang['strsequencedroppedbad'] = 'Sequence drop failed.';
+	$lang['strsequencerestart'] = 'Sequence restarted.';
+	$lang['strsequencerestartbad'] = 'Sequence restart failed.';
 	$lang['strsequencereset'] = 'Sequence reset.';
 	$lang['strsequenceresetbad'] = 'Sequence reset failed.';
  	$lang['strsequencealtered'] = 'Sequence altered.';
@@ -463,10 +486,10 @@
  	$lang['strindextype'] = 'Type of index';
 	$lang['strtablecolumnlist'] = 'Columns in table';
 	$lang['strindexcolumnlist'] = 'Columns in index';
-	$lang['strconfcluster'] = 'Are you sure you want to cluster &quot;%s&quot;?';
 	$lang['strclusteredgood'] = 'Cluster complete.';
 	$lang['strclusteredbad'] = 'Cluster failed.';
 	$lang['strconcurrently'] = 'Concurrently';
+	$lang['strnoclusteravailable'] = 'Table not clustered on an index.';
 
 	// Rules
 	$lang['strrules'] = 'Rules';
@@ -912,12 +935,24 @@
 	$lang['strturnedon'] = 'Turned On';
 	$lang['strturnedoff'] = 'Turned Off';
 	$lang['strenabled'] = 'Enabled';
+	$lang['strnovacuumconf'] = 'No autovacuum configuration found.';
 	$lang['strvacuumbasethreshold'] = 'Vacuum Base Threshold';
 	$lang['strvacuumscalefactor'] = 'Vacuum Scale Factor';
 	$lang['stranalybasethreshold'] = 'Analyze Base Threshold';
 	$lang['stranalyzescalefactor'] = 'Analyze Scale Factor';
 	$lang['strvacuumcostdelay'] = 'Vacuum Cost Delay';
 	$lang['strvacuumcostlimit'] = 'Vacuum Cost Limit';
+	$lang['strvacuumpertable'] = 'Autovacuum setup per table';
+	$lang['straddvacuumtable'] = 'Add autovacuum setup for a table';
+	$lang['streditvacuumtable'] = 'Edit autovacuum setup for table %s';
+	$lang['strdelvacuumtable'] = 'Delete autovacuum setup for table %s ?';
+	$lang['strvacuumtablereset'] = 'Autovacuum setup for table %s reset to default values';
+	$lang['strdelvacuumtablefail'] = 'Fail to remove the autovacuum setup for table %s';
+	$lang['strsetvacuumtablesaved'] = 'Autovacuum setup for table %s saved.';
+	$lang['strsetvacuumtablefail'] = 'Autovacuum setup for table %s failed.';
+	$lang['strspecifydelvacuumtable'] = 'You must specify the table you want remove the autovacuum parameters from.';
+	$lang['strspecifyeditvacuumtable'] = 'You must specify the table you want to edit the autovacuum parameters from.';
+	$lang['strnotdefaultinred'] = 'Not default values are in red.';
 
 	// Table-level Locks
 	$lang['strlocks'] = 'Locks';
