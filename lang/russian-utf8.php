@@ -150,6 +150,7 @@
 	$lang['strstop'] = 'Остановить автоматическое обновление';
 	$lang['strgotoppage'] = 'вверх';
 	$lang['strtheme'] = 'Тема';
+	$lang['strquerywaiting'] = 'Ждёт';
 	
 	// Admin
 	$lang['stradminondatabase'] = 'Следующие административные задачи применяются ко всей базе данных %s.';

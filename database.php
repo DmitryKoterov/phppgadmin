@@ -437,6 +437,11 @@
 		$processes = $data->getProcesses($_REQUEST['database']);
 				
 		$columns = array(
+			'waiting' => array(
+				'title' => $lang['strquerywaiting'],
+				'field' => field('waiting'),
+				'type'  => 'yesno',
+			),
 			'user' => array(
 				'title' => $lang['strusername'],
 				'field' => field('usename'),
@@ -445,19 +450,21 @@
 				'title' => $lang['strprocess'],
 				'field' => field('procpid'),
 			),
-			'query' => array(
-				'title' => $lang['strsql'],
-				'field' => field('current_query'),
-			),
-			'start_time' => array(
+			'started_ago' => array(
 				'title' => $lang['strstarttime'],
-				'field' => field('query_start'),
+				'field' => field('started_ago'),
+			),
+
+			// Build possible actions for our process list
+			'actions'   => array('title' => $lang['stractions']),
+
+			// SQL Query. It's length varies widely, so it should be placed after actions
+			'query'	 => array(
+			   'title' => $lang['strsql'],
+			   'field' => field('current_query'),
 			),
 		);
 
-		// Build possible actions for our process list
-		$columns['actions'] = array('title' => $lang['stractions']);
-			
 		$actions = array(
 			'cancel' => array(
 				'title' => $lang['strcancel'],

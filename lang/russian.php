@@ -124,6 +124,7 @@
 	$lang['strstarttime'] = 'Время начала';
 	$lang['strfile'] = 'Файл';
 	$lang['strfileimported'] = 'Файл импортирован.';
+	$lang['strquerywaiting'] = 'Ждет';
 
 	// Error handling
 	$lang['strbadconfig'] = 'Ваш config.inc.php является устаревшим. Вам необходимо обновить его из config.inc.php-dist.';
