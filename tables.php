@@ -458,6 +458,8 @@
 				$_REQUEST['return_desc'] = $lang['strback'];
 
 				$_no_output = true;
+ 				echo "<script src=\"libraries/js/jquery.js\" type=\"text/javascript\"></script>\n";
+				echo "<script src=\"js/referred_tables.js\" type=\"text/javascript\"></script>";
 				include('./display.php');
 				exit;
 			}
