@@ -448,10 +448,12 @@
 		 */
 		function printReload($database) {
 			echo "<script type=\"text/javascript\">\n";
+			echo "if (parent.frames.browser) {\n";
 			if ($database)
 				echo "\tparent.frames.browser.location.href=\"browser.php\";\n";
 			else
 				echo "\tparent.frames.browser.location.reload();\n";
+			echo "}\n";
 			echo "</script>\n";
 		}
 
@@ -1215,11 +1217,12 @@
 				else
 					echo $crumblink;
 
-				if (isset($crumb['browse_html'])) {
-					echo '&nbsp;<span class="label"><a href="' . htmlspecialchars($crumb['browse_url']) . '">' . $crumb['browse_html'] . '</a></span>';
-				}
-					
 				echo "{$lang['strseparator']}";
+
+				if (isset($crumb['browse_html'])) {
+					echo "{$crumb['browse_html']}";
+				}
+
 				echo "</td>";
 			}
 
@@ -1319,8 +1322,10 @@
 					'title' => $lang['strtable'],
 					'text'  => $_REQUEST['table'],
 					'url'   => "redirect.php?subject=table&{$vars}",
-					'browse_html' => '<img src="images/themes/default/Open.png">',
-					'browse_url' => "display.php?subject=table&{$vars}",
+					'browse_html' => '
+						&nbsp;<span class="label"><a href="' . htmlspecialchars("display.php?subject=table&{$vars}") . '"><img src="images/themes/default/Open.png" title="' . $lang['strbrowse'] .  '" height="14"></a></span>
+						&nbsp;<span class="label"><a href="' . htmlspecialchars("tables.php?action=confselectrows&subject=table&{$vars}") . '"><img src="images/themes/default/Search.png" height="14" title="' . $lang['strselect'] . '"></a></span>
+					',
 					'help'  => 'pg.table',
 					'icon'  => 'Table'
 				);
