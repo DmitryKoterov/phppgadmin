@@ -46,6 +46,7 @@
 		while ((!$res->EOF) && ($i < 11)) {
 			echo "<tr class=\"acline\">";
 			foreach ($res->fields as $n => $v) {
+				if (strlen($v) > 80) $v = substr($v, 0, 80) . "...";
 				if (in_array($n, $fkeynames))
 					echo "<td><a href=\"javascript:void(0)\" class=\"fkval\" name=\"{$keyspos[$n]}\">",htmlentities($v), "</a></td>";
 				else
