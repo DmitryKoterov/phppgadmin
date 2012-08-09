@@ -212,7 +212,8 @@
 				echo "\t<tr>\n\t\t<th class=\"data left required\">{$lang['strformat']}</th>\n";
 				echo "\t\t<td><select name=\"format\">\n";
 				echo "\t\t\t<option value=\"auto\">{$lang['strauto']}</option>\n";
-				echo "\t\t\t<option value=\"csv\">CSV</option>\n";
+				echo "\t\t\t<option value=\"csv\">CSV (\",\" separator)</option>\n";
+				echo "\t\t\t<option value=\"semi\">CSV (\";\" separator)</option>\n";
 				echo "\t\t\t<option value=\"tab\">{$lang['strtabbed']}</option>\n";
 				if (function_exists('xml_parser_create')) {
 					echo "\t\t\t<option value=\"xml\">XML</option>\n";

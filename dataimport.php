@@ -209,10 +209,12 @@
 			switch ($_REQUEST['format']) {
 				case 'csv':
 				case 'tab':
+				case 'semi':
 					// XXX: Length of CSV lines limited to 100k
 					$csv_max_line = 100000;
 					// Set delimiter to tabs or commas
 					if ($_REQUEST['format'] == 'csv') $csv_delimiter = ',';
+					else if ($_REQUEST['format'] == 'semi') $csv_delimiter = ';';
 					else $csv_delimiter = "\t";
 					// Get first line of field names
 					$fields = fgetcsv($fd, $csv_max_line, $csv_delimiter);

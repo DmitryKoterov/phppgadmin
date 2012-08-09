@@ -11,6 +11,7 @@
 		'sql' => 'sql',
 		'copy' => 'sql',
 		'csv' => 'csv',
+		'semi' => 'csv',
 		'tab' => 'txt',
 		'html' => 'html',
 		'xml' => 'xml'
@@ -251,6 +252,9 @@
 					case 'tab':
 						$sep = "\t";
 						break;
+					case 'semi':
+						$sep = ";";
+						break;
 					case 'csv':
 					default:
 						$sep = ',';
@@ -315,7 +319,8 @@
 			echo "<option value=\"copy\">COPY</option>\n";
 			echo "<option value=\"sql\">SQL</option>\n";
 		}
-		echo "<option value=\"csv\">CSV</option>\n";
+		echo "<option value=\"semi\">CSV (\";\" separator)</option>\n";
+		echo "<option value=\"csv\">CSV (\",\" separator)</option>\n";
 		echo "<option value=\"tab\">{$lang['strtabbed']}</option>\n";
 		echo "<option value=\"html\">XHTML</option>\n";
 		echo "<option value=\"xml\">XML</option>\n";
