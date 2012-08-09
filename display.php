@@ -652,10 +652,14 @@
 			echo "&amp;{$misc->href}\">{$lang['strdownload']}</a></li>\n";
 		}
 
+
 		// Insert
-		if (isset($object) && (isset($subject) && $subject == 'table'))
+		if (isset($object) && (isset($subject) && $subject == 'table')) {
+			echo "\t<li><a href=\"tables.php?action=confselectrows&amp;table=", 
+				urlencode($object), "&amp;{$misc->href}\">{$lang['strselect']}</a></li>\n";
 			echo "\t<li><a href=\"tables.php?action=confinsertrow&amp;table=",
 				urlencode($object), "&amp;{$misc->href}\">{$lang['strinsert']}</a></li>\n";
+		}
 
 		// Refresh
 		echo "\t<li><a href=\"display.php?{$gets}&amp;{$getsort}&amp;strings=", urlencode($_REQUEST['strings']), 
