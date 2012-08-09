@@ -224,4 +224,14 @@ jQuery(document).ready(function () {
 			triggerAc(this.checked);
 		})[0].checked
 	);
+
+	var $inputs = jQuery('input, textarea');
+	setInterval(function() {
+		$inputs.each(function() {
+			if (this.prevValue != null && this.prevValue != this.value) {
+				$(this).change();
+			}
+			this.prevValue = this.value;
+		});
+	}, 100);
 });
