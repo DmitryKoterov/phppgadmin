@@ -294,6 +294,8 @@ class Postgres extends ADODB_base {
 				$value = $this->escapeBytea($value);
 			case 'text':
 			case 'text[]':
+			case 'hstore':
+			case 'hstore[]':
 			case 'xml':
 			case 'xml[]':
 				$n = substr_count($value, "\n");
