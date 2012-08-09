@@ -24,7 +24,8 @@
 	$md5_server = md5($_REQUEST['server']);
 ?>
 
-<form id="login_form" action="redirect.php" method="post" name="login_form">
+<!-- POST login form to self URL to keep it constant after login. -->
+<form id="login_form" method="post" name="login_form">
 <?php
 	if (!empty($_POST)) $vars =& $_POST;
 	else $vars =& $_GET;

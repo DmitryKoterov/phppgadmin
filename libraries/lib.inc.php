@@ -90,7 +90,9 @@
 			$_SESSION['sharedPassword'] = $_POST['loginPassword_'.md5($_POST['loginServer'])];
 		}
 
-		$_reload_browser = true;
+		$misc->printReload(null); // reload browser left frame
+		echo '<script>location = location.href</script>'; // reload self via GET
+		exit();
 	}
 
 	/* select the theme */
